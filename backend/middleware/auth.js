@@ -5,22 +5,31 @@ const authMiddleware = async (req, res, next) => {
     try {
         const authHeader = req.header('Authorization');
 
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        if (!authHeader) {
             return res.status(401).json({
+                status: 'error',
                 message: 'Acesso negado. Token de autenticação não fornecido.'
             });
         }
 
-        const token = authHeader.replace('Bearer ', '');
+        if (!authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({
+                status: 'error',
+                message: 'Formato de token inválido. Use: Bearer <token>'
+            });
+        }
+
+        const token = authHeader.replace('Bearer ', '').trim();
 
         if (!token) {
             return res.status(401).json({
-                message: 'Acesso negado. Token não encontrado.'
+                status: 'error',
+                message: 'Token não pode estar vazio.'
             });
         }
 
         // Verify token
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
         // Get user from database
         const [users] = await db.execute(
@@ -30,6 +39,7 @@ const authMiddleware = async (req, res, next) => {
 
         if (users.length === 0) {
             return res.status(401).json({
+                status: 'error',
                 message: 'Token inválido. Usuário não encontrado.'
             });
         }
@@ -38,17 +48,26 @@ const authMiddleware = async (req, res, next) => {
         req.user = users[0];
         next();
     } catch (error) {
-        console.error('Auth middleware error:', error);
+        console.error('Auth middleware error:', error.message);
 
         if (error.name === 'JsonWebTokenError') {
-            return res.status(401).json({ message: 'Token inválido.' });
+            return res.status(401).json({
+                status: 'error',
+                message: 'Token inválido.'
+            });
         }
 
         if (error.name === 'TokenExpiredError') {
-            return res.status(401).json({ message: 'Token expirado.' });
+            return res.status(401).json({
+                status: 'error',
+                message: 'Token expirado.'
+            });
         }
 
-        res.status(500).json({ message: 'Erro na autenticação.' });
+        res.status(500).json({
+            status: 'error',
+            message: 'Erro na autenticação.'
+        });
     }
 };
 

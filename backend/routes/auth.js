@@ -13,11 +13,12 @@ router.post('/register', validateUserRegistration, async (req, res) => {
         // Check if user already exists
         const [existingUsers] = await db.execute(
             'SELECT id FROM users WHERE email = ?',
-            [email]
+            [email.toLowerCase()]
         );
 
         if (existingUsers.length > 0) {
             return res.status(409).json({
+                status: 'error',
                 message: 'Já existe um usuário cadastrado com este email.'
             });
         }
@@ -29,7 +30,7 @@ router.post('/register', validateUserRegistration, async (req, res) => {
         // Create user
         const [result] = await db.execute(
             'INSERT INTO users (name, email, password_hash, phone) VALUES (?, ?, ?, ?)',
-            [name.trim(), email.toLowerCase(), passwordHash, phone]
+            [name.trim(), email.toLowerCase(), passwordHash, phone || null]
         );
 
         // Get created user (without password)
@@ -43,19 +44,22 @@ router.post('/register', validateUserRegistration, async (req, res) => {
         // Generate JWT token
         const token = jwt.sign(
             { userId: user.id },
-            process.env.JWT_SECRET || 'fallback_secret',
+            process.env.JWT_SECRET,
             { expiresIn: '24h' }
         );
 
         res.status(201).json({
+            status: 'success',
             message: 'Usuário criado com sucesso!',
-            token,
-            user: {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                phone: user.phone,
-                created_at: user.created_at
+            data: {
+                token,
+                user: {
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    phone: user.phone,
+                    created_at: user.created_at
+                }
             }
         });
 
@@ -64,11 +68,13 @@ router.post('/register', validateUserRegistration, async (req, res) => {
 
         if (error.code === 'ER_DUP_ENTRY') {
             return res.status(409).json({
+                status: 'error',
                 message: 'Já existe um usuário com este email.'
             });
         }
 
         res.status(500).json({
+            status: 'error',
             message: 'Erro interno do servidor ao criar usuário.'
         });
     }
@@ -82,6 +88,7 @@ router.post('/login', async (req, res) => {
         // Basic validation
         if (!email || !password) {
             return res.status(400).json({
+                status: 'error',
                 message: 'Email e senha são obrigatórios.'
             });
         }
@@ -94,6 +101,7 @@ router.post('/login', async (req, res) => {
 
         if (users.length === 0) {
             return res.status(401).json({
+                status: 'error',
                 message: 'Credenciais inválidas. Verifique seu email e senha.'
             });
         }
@@ -104,6 +112,7 @@ router.post('/login', async (req, res) => {
         const isPasswordValid = await bcrypt.compare(password, user.password_hash);
         if (!isPasswordValid) {
             return res.status(401).json({
+                status: 'error',
                 message: 'Credenciais inválidas. Verifique seu email e senha.'
             });
         }
@@ -111,53 +120,30 @@ router.post('/login', async (req, res) => {
         // Generate JWT token
         const token = jwt.sign(
             { userId: user.id },
-            process.env.JWT_SECRET || 'fallback_secret',
+            process.env.JWT_SECRET,
             { expiresIn: '24h' }
         );
 
         res.json({
+            status: 'success',
             message: 'Login realizado com sucesso!',
-            token,
-            user: {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                phone: user.phone
+            data: {
+                token,
+                user: {
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    phone: user.phone
+                }
             }
         });
 
     } catch (error) {
         console.error('Login error:', error);
         res.status(500).json({
+            status: 'error',
             message: 'Erro interno do servidor ao fazer login.'
         });
-    }
-});
-
-// GET /api/auth/me - Get current user info (protected)
-router.get('/me', async (req, res) => {
-    try {
-        const token = req.header('Authorization')?.replace('Bearer ', '');
-
-        if (!token) {
-            return res.status(401).json({ message: 'Token não fornecido' });
-        }
-
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
-
-        const [users] = await db.execute(
-            'SELECT id, name, email, phone, created_at FROM users WHERE id = ?',
-            [decoded.userId]
-        );
-
-        if (users.length === 0) {
-            return res.status(404).json({ message: 'Usuário não encontrado' });
-        }
-
-        res.json({ user: users[0] });
-    } catch (error) {
-        console.error('Get user error:', error);
-        res.status(401).json({ message: 'Token inválido' });
     }
 });
 

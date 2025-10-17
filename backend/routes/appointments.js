@@ -60,18 +60,22 @@ router.get('/me', authMiddleware, async (req, res) => {
         const total = countResult[0].total;
 
         res.json({
-            appointments,
-            pagination: {
-                page: parseInt(page),
-                limit: parseInt(limit),
-                total,
-                pages: Math.ceil(total / limit)
+            status: 'success',
+            data: {
+                appointments,
+                pagination: {
+                    page: parseInt(page),
+                    limit: parseInt(limit),
+                    total,
+                    pages: Math.ceil(total / limit)
+                }
             }
         });
 
     } catch (error) {
         console.error('Get appointments error:', error);
         res.status(500).json({
+            status: 'error',
             message: 'Erro interno do servidor ao buscar agendamentos.'
         });
     }
@@ -95,6 +99,7 @@ router.post('/', authMiddleware, validateAppointment, async (req, res) => {
         if (professionals.length === 0) {
             await connection.rollback();
             return res.status(404).json({
+                status: 'error',
                 message: 'Profissional não encontrado.'
             });
         }
@@ -108,6 +113,7 @@ router.post('/', authMiddleware, validateAppointment, async (req, res) => {
         if (services.length === 0) {
             await connection.rollback();
             return res.status(404).json({
+                status: 'error',
                 message: 'Serviço não encontrado.'
             });
         }
@@ -125,6 +131,7 @@ router.post('/', authMiddleware, validateAppointment, async (req, res) => {
         if (start_time < professional.start_work_time || end_time > professional.end_work_time) {
             await connection.rollback();
             return res.status(400).json({
+                status: 'error',
                 message: `Horário fora do expediente do profissional (${professional.start_work_time} - ${professional.end_work_time}).`
             });
         }
@@ -142,6 +149,7 @@ router.post('/', authMiddleware, validateAppointment, async (req, res) => {
         if (conflicts.length > 0) {
             await connection.rollback();
             return res.status(409).json({
+                status: 'error',
                 message: 'Horário indisponível. Já existe um agendamento neste horário.'
             });
         }
@@ -177,14 +185,18 @@ router.post('/', authMiddleware, validateAppointment, async (req, res) => {
         await connection.commit();
 
         res.status(201).json({
+            status: 'success',
             message: 'Agendamento criado com sucesso!',
-            appointment: appointments[0]
+            data: {
+                appointment: appointments[0]
+            }
         });
 
     } catch (error) {
         await connection.rollback();
         console.error('Create appointment error:', error);
         res.status(500).json({
+            status: 'error',
             message: 'Erro interno do servidor ao criar agendamento.'
         });
     } finally {
@@ -192,60 +204,17 @@ router.post('/', authMiddleware, validateAppointment, async (req, res) => {
     }
 });
 
-// GET /api/appointments/:id - Get specific appointment
-router.get('/:id', authMiddleware, async (req, res) => {
-    try {
-        const { id } = req.params;
-
-        const [appointments] = await db.execute(`
-      SELECT 
-        a.id,
-        a.date,
-        a.start_time,
-        a.end_time,
-        a.status,
-        a.notes,
-        a.created_at,
-        a.updated_at,
-        p.name as professional_name,
-        p.specialty as professional_specialty,
-        p.bio as professional_bio,
-        p.start_work_time,
-        p.end_work_time,
-        s.name as service_name,
-        s.description as service_description,
-        s.duration_minutes
-      FROM appointments a
-      JOIN professionals p ON a.professional_id = p.id
-      JOIN services s ON a.service_id = s.id
-      WHERE a.id = ? AND a.user_id = ?
-    `, [id, req.user.id]);
-
-        if (appointments.length === 0) {
-            return res.status(404).json({
-                message: 'Agendamento não encontrado.'
-            });
-        }
-
-        res.json({ appointment: appointments[0] });
-    } catch (error) {
-        console.error('Get appointment error:', error);
-        res.status(500).json({
-            message: 'Erro interno do servidor ao buscar agendamento.'
-        });
-    }
-});
-
 // PUT /api/appointments/:id - Update appointment status
 router.put('/:id', authMiddleware, async (req, res) => {
     try {
         const { id } = req.params;
-        const { status, notes } = req.body;
+        const { status } = req.body;
 
         // Validate status
         const validStatuses = ['scheduled', 'confirmed', 'cancelled', 'completed'];
-        if (status && !validStatuses.includes(status)) {
+        if (!status || !validStatuses.includes(status)) {
             return res.status(400).json({
+                status: 'error',
                 message: `Status inválido. Use: ${validStatuses.join(', ')}`
             });
         }
@@ -258,6 +227,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
         if (appointments.length === 0) {
             return res.status(404).json({
+                status: 'error',
                 message: 'Agendamento não encontrado.'
             });
         }
@@ -273,129 +243,35 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
             if (hoursDiff < 24) {
                 return res.status(400).json({
+                    status: 'error',
                     message: 'Agendamentos só podem ser cancelados com até 24 horas de antecedência.'
                 });
             }
         }
 
-        // Build update query
-        const updates = [];
-        const params = [];
-
-        if (status) {
-            updates.push('status = ?');
-            params.push(status);
-        }
-
-        if (notes !== undefined) {
-            updates.push('notes = ?');
-            params.push(notes);
-        }
-
-        if (updates.length === 0) {
-            return res.status(400).json({
-                message: 'Nenhum campo válido para atualização fornecido.'
-            });
-        }
-
-        updates.push('updated_at = CURRENT_TIMESTAMP');
-        params.push(id, req.user.id);
-
-        const query = `UPDATE appointments SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`;
-
-        const [result] = await db.execute(query, params);
+        // Update appointment
+        const [result] = await db.execute(
+            'UPDATE appointments SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?',
+            [status, id, req.user.id]
+        );
 
         if (result.affectedRows === 0) {
             return res.status(404).json({
+                status: 'error',
                 message: 'Agendamento não encontrado.'
             });
         }
 
-        // Get updated appointment
-        const [updatedAppointments] = await db.execute(`
-      SELECT 
-        a.id,
-        a.date,
-        a.start_time,
-        a.end_time,
-        a.status,
-        a.notes,
-        a.updated_at,
-        p.name as professional_name,
-        p.specialty as professional_specialty,
-        s.name as service_name
-      FROM appointments a
-      JOIN professionals p ON a.professional_id = p.id
-      JOIN services s ON a.service_id = s.id
-      WHERE a.id = ?
-    `, [id]);
-
         res.json({
-            message: 'Agendamento atualizado com sucesso!',
-            appointment: updatedAppointments[0]
+            status: 'success',
+            message: 'Agendamento atualizado com sucesso!'
         });
 
     } catch (error) {
         console.error('Update appointment error:', error);
         res.status(500).json({
+            status: 'error',
             message: 'Erro interno do servidor ao atualizar agendamento.'
-        });
-    }
-});
-
-// DELETE /api/appointments/:id - Cancel appointment
-router.delete('/:id', authMiddleware, async (req, res) => {
-    try {
-        const { id } = req.params;
-
-        // Check if appointment belongs to user
-        const [appointments] = await db.execute(
-            'SELECT id, date, start_time FROM appointments WHERE id = ? AND user_id = ?',
-            [id, req.user.id]
-        );
-
-        if (appointments.length === 0) {
-            return res.status(404).json({
-                message: 'Agendamento não encontrado.'
-            });
-        }
-
-        const appointment = appointments[0];
-
-        // Check if appointment can be cancelled (24h in advance)
-        const appointmentDateTime = new Date(`${appointment.date}T${appointment.start_time}`);
-        const now = new Date();
-        const timeDiff = appointmentDateTime.getTime() - now.getTime();
-        const hoursDiff = timeDiff / (1000 * 60 * 60);
-
-        if (hoursDiff < 24) {
-            return res.status(400).json({
-                message: 'Agendamentos só podem ser cancelados com até 24 horas de antecedência.'
-            });
-        }
-
-        // Update status to cancelled (soft delete)
-        const [result] = await db.execute(
-            `UPDATE appointments 
-       SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP 
-       WHERE id = ? AND user_id = ?`,
-            [id, req.user.id]
-        );
-
-        if (result.affectedRows === 0) {
-            return res.status(404).json({
-                message: 'Agendamento não encontrado.'
-            });
-        }
-
-        res.json({
-            message: 'Agendamento cancelado com sucesso.'
-        });
-
-    } catch (error) {
-        console.error('Cancel appointment error:', error);
-        res.status(500).json({
-            message: 'Erro interno do servidor ao cancelar agendamento.'
         });
     }
 });

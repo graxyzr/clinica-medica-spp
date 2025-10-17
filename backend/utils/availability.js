@@ -37,8 +37,7 @@ function calculateAvailableSlots(startWorkTime, endWorkTime, slotDuration, exist
             if (!hasConflict) {
                 slots.push({
                     start_time: slotStartStr,
-                    end_time: slotEndStr,
-                    duration: slotDuration
+                    end_time: slotEndStr
                 });
             }
         }
@@ -50,16 +49,6 @@ function calculateAvailableSlots(startWorkTime, endWorkTime, slotDuration, exist
     return slots;
 }
 
-/**
- * Format time for display
- * @param {string} time - Time string (HH:MM:SS)
- * @returns {string} Formatted time (HH:MM)
- */
-function formatTimeForDisplay(time) {
-    return time.slice(0, 5);
-}
-
 module.exports = {
-    calculateAvailableSlots,
-    formatTimeForDisplay
+    calculateAvailableSlots
 };

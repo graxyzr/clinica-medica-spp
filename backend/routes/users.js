@@ -15,13 +15,24 @@ router.get('/me', authMiddleware, async (req, res) => {
         );
 
         if (users.length === 0) {
-            return res.status(404).json({ message: 'Usuário não encontrado.' });
+            return res.status(404).json({
+                status: 'error',
+                message: 'Usuário não encontrado.'
+            });
         }
 
-        res.json({ user: users[0] });
+        res.json({
+            status: 'success',
+            data: {
+                user: users[0]
+            }
+        });
     } catch (error) {
         console.error('Get user profile error:', error);
-        res.status(500).json({ message: 'Erro interno do servidor.' });
+        res.status(500).json({
+            status: 'error',
+            message: 'Erro interno do servidor.'
+        });
     }
 });
 
@@ -29,30 +40,30 @@ router.get('/me', authMiddleware, async (req, res) => {
 router.put('/me', authMiddleware, async (req, res) => {
     try {
         const { name, email, phone, currentPassword, newPassword } = req.body;
-        const updates = {};
+        const updates = [];
         const params = [];
 
         // Validate email if provided
         if (email && !validateEmail(email)) {
-            return res.status(400).json({ message: 'Email inválido.' });
+            return res.status(400).json({
+                status: 'error',
+                message: 'Email inválido.'
+            });
         }
 
         // Build dynamic update query
-        let query = 'UPDATE users SET ';
-        const fields = [];
-
         if (name) {
-            fields.push('name = ?');
+            updates.push('name = ?');
             params.push(name.trim());
         }
 
         if (email) {
-            fields.push('email = ?');
+            updates.push('email = ?');
             params.push(email.toLowerCase());
         }
 
         if (phone !== undefined) {
-            fields.push('phone = ?');
+            updates.push('phone = ?');
             params.push(phone);
         }
 
@@ -60,6 +71,7 @@ router.put('/me', authMiddleware, async (req, res) => {
         if (newPassword) {
             if (!currentPassword) {
                 return res.status(400).json({
+                    status: 'error',
                     message: 'Senha atual é obrigatória para alterar a senha.'
                 });
             }
@@ -77,6 +89,7 @@ router.put('/me', authMiddleware, async (req, res) => {
 
             if (!isCurrentPasswordValid) {
                 return res.status(401).json({
+                    status: 'error',
                     message: 'Senha atual incorreta.'
                 });
             }
@@ -85,24 +98,29 @@ router.put('/me', authMiddleware, async (req, res) => {
             const saltRounds = 10;
             const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
 
-            fields.push('password_hash = ?');
+            updates.push('password_hash = ?');
             params.push(newPasswordHash);
         }
 
-        if (fields.length === 0) {
+        if (updates.length === 0) {
             return res.status(400).json({
+                status: 'error',
                 message: 'Nenhum campo válido para atualização fornecido.'
             });
         }
 
-        query += fields.join(', ') + ', updated_at = CURRENT_TIMESTAMP WHERE id = ?';
+        updates.push('updated_at = CURRENT_TIMESTAMP');
         params.push(req.user.id);
 
-        // Execute update
+        const query = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
+
         const [result] = await db.execute(query, params);
 
         if (result.affectedRows === 0) {
-            return res.status(404).json({ message: 'Usuário não encontrado.' });
+            return res.status(404).json({
+                status: 'error',
+                message: 'Usuário não encontrado.'
+            });
         }
 
         // Get updated user
@@ -112,8 +130,11 @@ router.put('/me', authMiddleware, async (req, res) => {
         );
 
         res.json({
+            status: 'success',
             message: 'Perfil atualizado com sucesso!',
-            user: updatedUsers[0]
+            data: {
+                user: updatedUsers[0]
+            }
         });
 
     } catch (error) {
@@ -121,59 +142,14 @@ router.put('/me', authMiddleware, async (req, res) => {
 
         if (error.code === 'ER_DUP_ENTRY') {
             return res.status(409).json({
+                status: 'error',
                 message: 'Já existe um usuário com este email.'
             });
         }
 
         res.status(500).json({
+            status: 'error',
             message: 'Erro interno do servidor ao atualizar perfil.'
-        });
-    }
-});
-
-// DELETE /api/users/me - Delete current user account
-router.delete('/me', authMiddleware, async (req, res) => {
-    try {
-        const { password } = req.body;
-
-        if (!password) {
-            return res.status(400).json({
-                message: 'Senha é obrigatória para excluir a conta.'
-            });
-        }
-
-        // Verify password
-        const [users] = await db.execute(
-            'SELECT password_hash FROM users WHERE id = ?',
-            [req.user.id]
-        );
-
-        const isPasswordValid = await bcrypt.compare(password, users[0].password_hash);
-
-        if (!isPasswordValid) {
-            return res.status(401).json({
-                message: 'Senha incorreta. Não foi possível excluir a conta.'
-            });
-        }
-
-        // Delete user (cascade will handle appointments)
-        const [result] = await db.execute(
-            'DELETE FROM users WHERE id = ?',
-            [req.user.id]
-        );
-
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: 'Usuário não encontrado.' });
-        }
-
-        res.json({
-            message: 'Conta excluída com sucesso.'
-        });
-
-    } catch (error) {
-        console.error('Delete user error:', error);
-        res.status(500).json({
-            message: 'Erro interno do servidor ao excluir conta.'
         });
     }
 });

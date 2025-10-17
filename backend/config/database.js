@@ -1,7 +1,7 @@
 const mysql = require('mysql2/promise');
 require('dotenv').config();
 
-const pool = mysql.createPool({
+const poolConfig = {
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || '',
@@ -9,9 +9,12 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-  reconnect: true,
-  timezone: '+00:00'
-});
+  acquireTimeout: 60000,
+  timeout: 60000,
+  reconnect: false
+};
+
+const pool = mysql.createPool(poolConfig);
 
 // Test database connection
 const testConnection = async () => {
@@ -20,13 +23,14 @@ const testConnection = async () => {
     console.log('✅ Conectado ao MySQL com sucesso!');
     console.log(`📊 Database: ${process.env.DB_NAME}`);
     connection.release();
+    return true;
   } catch (error) {
     console.error('❌ Erro ao conectar com MySQL:', error.message);
     console.log('💡 Verifique se:');
     console.log('   1. O MySQL está rodando');
     console.log('   2. As credenciais no .env estão corretas');
     console.log('   3. O database existe');
-    process.exit(1);
+    return false;
   }
 };
 

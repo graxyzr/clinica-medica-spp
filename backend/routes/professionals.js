@@ -1,6 +1,5 @@
 const express = require('express');
 const db = require('../config/database');
-const authMiddleware = require('../middleware/auth');
 const { calculateAvailableSlots } = require('../utils/availability');
 const router = express.Router();
 
@@ -15,12 +14,16 @@ router.get('/', async (req, res) => {
         );
 
         res.json({
-            professionals,
-            count: professionals.length
+            status: 'success',
+            data: {
+                professionals,
+                count: professionals.length
+            }
         });
     } catch (error) {
         console.error('Get professionals error:', error);
         res.status(500).json({
+            status: 'error',
             message: 'Erro interno do servidor ao buscar profissionais.'
         });
     }
@@ -41,14 +44,21 @@ router.get('/:id', async (req, res) => {
 
         if (professionals.length === 0) {
             return res.status(404).json({
+                status: 'error',
                 message: 'Profissional não encontrado.'
             });
         }
 
-        res.json({ professional: professionals[0] });
+        res.json({
+            status: 'success',
+            data: {
+                professional: professionals[0]
+            }
+        });
     } catch (error) {
         console.error('Get professional error:', error);
         res.status(500).json({
+            status: 'error',
             message: 'Erro interno do servidor ao buscar profissional.'
         });
     }
@@ -63,12 +73,14 @@ router.get('/:id/availability', async (req, res) => {
         // Validation
         if (!date) {
             return res.status(400).json({
+                status: 'error',
                 message: 'Parâmetro "date" é obrigatório (YYYY-MM-DD).'
             });
         }
 
         if (!serviceId) {
             return res.status(400).json({
+                status: 'error',
                 message: 'Parâmetro "serviceId" é obrigatório.'
             });
         }
@@ -77,18 +89,8 @@ router.get('/:id/availability', async (req, res) => {
         const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
         if (!dateRegex.test(date)) {
             return res.status(400).json({
+                status: 'error',
                 message: 'Formato de data inválido. Use YYYY-MM-DD.'
-            });
-        }
-
-        // Check if date is not in the past
-        const selectedDate = new Date(date);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        if (selectedDate < today) {
-            return res.status(400).json({
-                message: 'Não é possível agendar para datas passadas.'
             });
         }
 
@@ -100,6 +102,7 @@ router.get('/:id/availability', async (req, res) => {
 
         if (professionals.length === 0) {
             return res.status(404).json({
+                status: 'error',
                 message: 'Profissional não encontrado.'
             });
         }
@@ -112,6 +115,7 @@ router.get('/:id/availability', async (req, res) => {
 
         if (services.length === 0) {
             return res.status(404).json({
+                status: 'error',
                 message: 'Serviço não encontrado.'
             });
         }
@@ -136,52 +140,21 @@ router.get('/:id/availability', async (req, res) => {
         );
 
         res.json({
-            professional_id: parseInt(id),
-            date,
-            service_id: parseInt(serviceId),
-            available_slots: availableSlots,
-            slot_count: availableSlots.length
+            status: 'success',
+            data: {
+                professional_id: parseInt(id),
+                date,
+                service_id: parseInt(serviceId),
+                available_slots: availableSlots,
+                slot_count: availableSlots.length
+            }
         });
 
     } catch (error) {
         console.error('Get availability error:', error);
         res.status(500).json({
+            status: 'error',
             message: 'Erro interno do servidor ao buscar disponibilidade.'
-        });
-    }
-});
-
-// POST /api/professionals - Create new professional (Admin only)
-router.post('/', authMiddleware, async (req, res) => {
-    try {
-        const { name, specialty, bio, start_work_time, end_work_time } = req.body;
-
-        if (!name || !specialty) {
-            return res.status(400).json({
-                message: 'Nome e especialidade são obrigatórios.'
-            });
-        }
-
-        const [result] = await db.execute(
-            `INSERT INTO professionals (name, specialty, bio, start_work_time, end_work_time) 
-       VALUES (?, ?, ?, ?, ?)`,
-            [name.trim(), specialty.trim(), bio, start_work_time || '09:00:00', end_work_time || '17:00:00']
-        );
-
-        const [professionals] = await db.execute(
-            'SELECT * FROM professionals WHERE id = ?',
-            [result.insertId]
-        );
-
-        res.status(201).json({
-            message: 'Profissional criado com sucesso!',
-            professional: professionals[0]
-        });
-
-    } catch (error) {
-        console.error('Create professional error:', error);
-        res.status(500).json({
-            message: 'Erro interno do servidor ao criar profissional.'
         });
     }
 });
