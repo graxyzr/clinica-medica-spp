@@ -124,19 +124,21 @@ const styles = StyleSheet.create({
     },
     surface: {
         padding: 20,
-        borderRadius: 10,
+        borderRadius: 12,
         elevation: 4,
+        backgroundColor: COLORS.surface,
     },
     title: {
         textAlign: 'center',
         fontSize: 24,
         marginBottom: 8,
         color: COLORS.primary,
+        fontWeight: 'bold',
     },
     subtitle: {
         textAlign: 'center',
         marginBottom: 30,
-        color: COLORS.disabled,
+        color: COLORS.textSecondary,
         fontSize: 16,
     },
 });

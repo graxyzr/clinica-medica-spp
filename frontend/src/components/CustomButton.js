@@ -25,6 +25,12 @@ const CustomButton = ({
                 fontSize: 16,
                 fontWeight: 'bold',
             }}
+            theme={{
+                colors: {
+                    primary: COLORS.primary,
+                },
+                roundness: 8,
+            }}
             {...props}
         >
             {children}

@@ -1,19 +1,60 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Title, Text, Card } from 'react-native-paper';
 import CustomInput from '../../components/CustomInput';
 import CustomButton from '../../components/CustomButton';
 import { COLORS } from '../../utils/constants';
+import api from '../../services/api';
 
 const BookingScreen = () => {
     const [specialty, setSpecialty] = useState('');
-    const [doctor, setDoctor] = useState('');
+    const [professionalId, setProfessionalId] = useState('');
     const [date, setDate] = useState('');
     const [time, setTime] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [professionals, setProfessionals] = useState([]);
 
-    const handleBooking = () => {
-        alert('Consulta agendada com sucesso!');
-        // Aqui você implementaria a lógica real de agendamento
+    useEffect(() => {
+        // Buscar profissionais disponíveis
+        fetchProfessionals();
+    }, []);
+
+    const fetchProfessionals = async () => {
+        try {
+            const response = await api.get('/professionals');
+            setProfessionals(response.data);
+        } catch (error) {
+            console.error('Erro ao buscar profissionais:', error);
+        }
+    };
+
+    const handleBooking = async () => {
+        if (!specialty || !professionalId || !date || !time) {
+            alert('Por favor, preencha todos os campos');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            await api.post('/appointments', {
+                specialty,
+                professionalId,
+                date,
+                time,
+            });
+
+            alert('Consulta agendada com sucesso!');
+            // Limpar formulário
+            setSpecialty('');
+            setProfessionalId('');
+            setDate('');
+            setTime('');
+        } catch (error) {
+            console.error('Erro ao agendar consulta:', error);
+            alert('Erro ao agendar consulta. Tente novamente.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -34,8 +75,8 @@ const BookingScreen = () => {
 
                     <CustomInput
                         label="Profissional"
-                        value={doctor}
-                        onChangeText={setDoctor}
+                        value={professionalId}
+                        onChangeText={setProfessionalId}
                         left={<CustomInput.Icon icon="doctor" />}
                     />
 
@@ -59,6 +100,8 @@ const BookingScreen = () => {
                         mode="contained"
                         onPress={handleBooking}
                         style={styles.bookButton}
+                        loading={loading}
+                        disabled={loading}
                     >
                         Agendar Consulta
                     </CustomButton>
@@ -79,13 +122,14 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     subtitle: {
-        color: COLORS.disabled,
+        color: COLORS.textSecondary,
         marginTop: 8,
         textAlign: 'center',
     },
     formCard: {
         margin: 16,
         elevation: 2,
+        backgroundColor: COLORS.surface,
     },
     bookButton: {
         marginTop: 16,

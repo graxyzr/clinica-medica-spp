@@ -18,12 +18,22 @@ const CustomInput = ({
             style={[
                 {
                     marginBottom: 16,
-                    backgroundColor: '#fff',
+                    backgroundColor: COLORS.inputBackground,
                 },
                 style
             ]}
-            outlineColor="#e0e0e0"
+            theme={{
+                colors: {
+                    primary: COLORS.primary,
+                    background: COLORS.inputBackground,
+                    placeholder: COLORS.textSecondary,
+                    text: COLORS.text,
+                },
+                roundness: 8,
+            }}
+            outlineColor={COLORS.inputBorder}
             activeOutlineColor={COLORS.primary}
+            selectionColor={COLORS.primary}
             {...props}
         />
     );

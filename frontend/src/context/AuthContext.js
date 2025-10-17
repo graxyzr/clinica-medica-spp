@@ -13,6 +13,18 @@ export const AuthProvider = ({ children }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [userInfo, setUserInfo] = useState(null);
 
+    // Buscar informações do usuário com o token
+    const fetchUserInfo = async (token) => {
+        try {
+            const response = await api.get('/auth/me');
+            setUserInfo(response.data.user);
+        } catch (error) {
+            console.error('Erro ao buscar informações do usuário:', error);
+            // Se não conseguir buscar info do usuário, faz logout
+            await signOut();
+        }
+    };
+
     // Verifica se existe token ao inicializar o app
     useEffect(() => {
         const checkToken = async () => {
@@ -20,8 +32,7 @@ export const AuthProvider = ({ children }) => {
                 const token = await authStorage.getToken();
                 if (token) {
                     setUserToken(token);
-                    // Aqui poderia buscar informações do usuário
-                    // await fetchUserInfo(token);
+                    await fetchUserInfo(token);
                 }
             } catch (error) {
                 console.error('Erro ao verificar token:', error);
@@ -41,29 +52,23 @@ export const AuthProvider = ({ children }) => {
     const signIn = async (email, password) => {
         setIsLoading(true);
         try {
-            // Simulação de chamada para API de login
-            // Substitua por sua API real
-            console.log('Tentando login com:', email);
+            const response = await api.post('/auth/login', {
+                email,
+                password,
+            });
 
-            // Simulando resposta da API
-            setTimeout(async () => {
-                const mockToken = 'mock-jwt-token-' + Date.now();
-                const mockUser = {
-                    id: 1,
-                    name: 'João Silva',
-                    email: email
-                };
+            const { token, user } = response.data;
 
-                await authStorage.storeToken(mockToken);
-                setUserToken(mockToken);
-                setUserInfo(mockUser);
-                setIsLoading(false);
-            }, 1500);
+            // Armazena o token
+            await authStorage.storeToken(token);
+            setUserToken(token);
+            setUserInfo(user);
 
         } catch (error) {
             console.error('Erro no login:', error);
-            setIsLoading(false);
             throw error;
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -74,28 +79,20 @@ export const AuthProvider = ({ children }) => {
     const signUp = async (userData) => {
         setIsLoading(true);
         try {
-            // Simulação de chamada para API de registro
-            console.log('Tentando registro com:', userData);
+            const response = await api.post('/auth/register', userData);
 
-            // Simulando resposta da API
-            setTimeout(async () => {
-                const mockToken = 'mock-jwt-token-' + Date.now();
-                const mockUser = {
-                    id: 2,
-                    name: userData.name,
-                    email: userData.email
-                };
+            const { token, user } = response.data;
 
-                await authStorage.storeToken(mockToken);
-                setUserToken(mockToken);
-                setUserInfo(mockUser);
-                setIsLoading(false);
-            }, 1500);
+            // Armazena o token
+            await authStorage.storeToken(token);
+            setUserToken(token);
+            setUserInfo(user);
 
         } catch (error) {
             console.error('Erro no registro:', error);
-            setIsLoading(false);
             throw error;
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -105,6 +102,9 @@ export const AuthProvider = ({ children }) => {
     const signOut = async () => {
         setIsLoading(true);
         try {
+            // Opcional: chamar API para invalidar token no backend
+            // await api.post('/auth/logout');
+
             await authStorage.removeToken();
             setUserToken(null);
             setUserInfo(null);

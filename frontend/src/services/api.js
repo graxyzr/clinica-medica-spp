@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { getToken } from '../storage/authStorage';
+import { getToken, removeToken } from '../storage/authStorage';
 import { API_CONFIG } from '../utils/constants';
 
 // Configuração base do Axios para comunicação com a API backend
@@ -28,12 +28,19 @@ api.interceptors.request.use(
 // Interceptor para tratar respostas de erro
 api.interceptors.response.use(
     (response) => response,
-    (error) => {
+    async (error) => {
         if (error.response?.status === 401) {
-            // Token expirado ou inválido - redirecionar para login
-            // Esta lógica será implementada no AuthContext
-            console.log('Token expirado ou inválido');
+            // Token expirado ou inválido - limpar storage e redirecionar para login
+            await removeToken();
+            // Você pode adicionar um evento global ou usar Context para redirecionar
+            console.log('Token expirado, redirecionando para login...');
         }
+
+        // Tratamento de outros erros
+        if (error.response?.status >= 500) {
+            console.error('Erro do servidor:', error.response.data);
+        }
+
         return Promise.reject(error);
     }
 );
