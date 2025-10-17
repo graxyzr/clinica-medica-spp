@@ -9,6 +9,7 @@ const CustomInput = ({
     label,
     mode = 'outlined',
     style,
+    error = false,
     ...props
 }) => {
     return (
@@ -24,16 +25,18 @@ const CustomInput = ({
             ]}
             theme={{
                 colors: {
-                    primary: COLORS.primary,
+                    primary: error ? COLORS.error : COLORS.primary,
                     background: COLORS.inputBackground,
                     placeholder: COLORS.textSecondary,
                     text: COLORS.text,
+                    error: COLORS.error,
                 },
                 roundness: 8,
             }}
-            outlineColor={COLORS.inputBorder}
-            activeOutlineColor={COLORS.primary}
-            selectionColor={COLORS.primary}
+            outlineColor={error ? COLORS.error : COLORS.inputBorder}
+            activeOutlineColor={error ? COLORS.error : COLORS.primary}
+            selectionColor={error ? COLORS.error : COLORS.primary}
+            error={error}
             {...props}
         />
     );

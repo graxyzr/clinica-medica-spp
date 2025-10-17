@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Platform } from 'react-native';
-import { Title, Text, Card, Button } from 'react-native-paper';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { Title, Text, Card } from 'react-native-paper';
 import CustomInput from '../../components/CustomInput';
 import CustomButton from '../../components/CustomButton';
 import { COLORS } from '../../utils/constants';
@@ -12,12 +11,10 @@ const BookingScreen = () => {
     const [professionals, setProfessionals] = useState([]);
     const [selectedSpecialty, setSelectedSpecialty] = useState('');
     const [selectedProfessional, setSelectedProfessional] = useState('');
-    const [date, setDate] = useState(new Date());
-    const [time, setTime] = useState(new Date());
+    const [date, setDate] = useState('');
+    const [time, setTime] = useState('');
     const [loading, setLoading] = useState(false);
     const [professionalLoading, setProfessionalLoading] = useState(false);
-    const [showDatePicker, setShowDatePicker] = useState(false);
-    const [showTimePicker, setShowTimePicker] = useState(false);
 
     // Buscar especialidades disponíveis
     useEffect(() => {
@@ -40,7 +37,6 @@ const BookingScreen = () => {
             setSpecialties(response.data);
         } catch (error) {
             console.error('Erro ao buscar especialidades:', error);
-            // Se o endpoint não existir, usar especialidades padrão
             setSpecialties([
                 'Cardiologista',
                 'Dermatologista',
@@ -63,7 +59,6 @@ const BookingScreen = () => {
             setProfessionals(response.data);
         } catch (error) {
             console.error('Erro ao buscar profissionais:', error);
-            // Fallback: filtrar profissionais mockados pela especialidade
             const allProfessionals = await api.get('/professionals');
             const filtered = allProfessionals.data.filter(prof =>
                 prof.specialty.toLowerCase().includes(specialty.toLowerCase())
@@ -74,51 +69,41 @@ const BookingScreen = () => {
         }
     };
 
-    const onDateChange = (event, selectedDate) => {
-        setShowDatePicker(Platform.OS === 'ios');
-        if (selectedDate) {
-            setDate(selectedDate);
-        }
+    // Função para formatar data para o formato YYYY-MM-DD (input date)
+    const getTodayDate = () => {
+        const today = new Date();
+        return today.toISOString().split('T')[0];
     };
 
-    const onTimeChange = (event, selectedTime) => {
-        setShowTimePicker(Platform.OS === 'ios');
-        if (selectedTime) {
-            setTime(selectedTime);
-        }
+    // Função para obter data mínima (hoje)
+    const getMinDate = () => {
+        return getTodayDate();
     };
 
-    const showDatepicker = () => {
-        setShowDatePicker(true);
+    // Função para obter data máxima (1 ano a partir de hoje)
+    const getMaxDate = () => {
+        const nextYear = new Date();
+        nextYear.setFullYear(nextYear.getFullYear() + 1);
+        return nextYear.toISOString().split('T')[0];
     };
 
-    const showTimepicker = () => {
-        setShowTimePicker(true);
-    };
-
-    const formatDate = (date) => {
-        return date.toLocaleDateString('pt-BR');
-    };
-
-    const formatTime = (date) => {
-        return date.toLocaleTimeString('pt-BR', {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false
-        });
+    // Converter data do formato YYYY-MM-DD para DD/MM/AAAA para exibição
+    const formatDateForDisplay = (dateString) => {
+        if (!dateString) return '';
+        const [year, month, day] = dateString.split('-');
+        return `${day}/${month}/${year}`;
     };
 
     const handleBooking = async () => {
-        if (!selectedSpecialty || !selectedProfessional) {
-            alert('Por favor, selecione a especialidade e o profissional');
+        if (!selectedSpecialty || !selectedProfessional || !date || !time) {
+            alert('Por favor, preencha todos os campos');
             return;
         }
 
         // Verificar se a data não é no passado
+        const selectedDate = new Date(date);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const selectedDate = new Date(date);
-        selectedDate.setHours(0, 0, 0, 0);
 
         if (selectedDate < today) {
             alert('Por favor, selecione uma data futura');
@@ -130,16 +115,16 @@ const BookingScreen = () => {
             await api.post('/appointments', {
                 specialty: selectedSpecialty,
                 professionalId: selectedProfessional,
-                date: date.toISOString().split('T')[0], // Formato YYYY-MM-DD
-                time: formatTime(time),
+                date: date, // Já está no formato YYYY-MM-DD
+                time: time, // Já está no formato HH:MM
             });
 
             alert('Consulta agendada com sucesso!');
             // Limpar formulário
             setSelectedSpecialty('');
             setSelectedProfessional('');
-            setDate(new Date());
-            setTime(new Date());
+            setDate('');
+            setTime('');
             setProfessionals([]);
         } catch (error) {
             console.error('Erro ao agendar consulta:', error);
@@ -161,19 +146,21 @@ const BookingScreen = () => {
                     {/* Select de Especialidade */}
                     <View style={styles.inputContainer}>
                         <Text style={styles.label}>Especialidade *</Text>
-                        <View style={styles.selectContainer}>
-                            {specialties.map((specialty, index) => (
-                                <CustomButton
-                                    key={index}
-                                    mode={selectedSpecialty === specialty ? 'contained' : 'outlined'}
-                                    onPress={() => setSelectedSpecialty(specialty)}
-                                    style={styles.specialtyButton}
-                                    compact
-                                >
-                                    {specialty}
-                                </CustomButton>
-                            ))}
-                        </View>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.specialtiesScroll}>
+                            <View style={styles.selectContainer}>
+                                {specialties.map((specialty, index) => (
+                                    <CustomButton
+                                        key={index}
+                                        mode={selectedSpecialty === specialty ? 'contained' : 'outlined'}
+                                        onPress={() => setSelectedSpecialty(specialty)}
+                                        style={styles.specialtyButton}
+                                        compact
+                                    >
+                                        {specialty}
+                                    </CustomButton>
+                                ))}
+                            </View>
+                        </ScrollView>
                     </View>
 
                     {/* Select de Profissional */}
@@ -182,79 +169,74 @@ const BookingScreen = () => {
                         {professionalLoading ? (
                             <Text style={styles.loadingText}>Carregando profissionais...</Text>
                         ) : (
-                            <View style={styles.selectContainer}>
-                                {professionals.length === 0 ? (
-                                    <Text style={styles.noProfessionalsText}>
-                                        {selectedSpecialty ? 'Nenhum profissional disponível para esta especialidade' : 'Selecione uma especialidade primeiro'}
-                                    </Text>
-                                ) : (
-                                    professionals.map((professional) => (
-                                        <CustomButton
-                                            key={professional.id}
-                                            mode={selectedProfessional === professional.id ? 'contained' : 'outlined'}
-                                            onPress={() => setSelectedProfessional(professional.id)}
-                                            style={styles.professionalButton}
-                                            compact
-                                        >
-                                            <View style={styles.professionalInfo}>
-                                                <Text style={styles.professionalName}>{professional.name}</Text>
-                                                <Text style={styles.professionalRating}>⭐ {professional.rating} ({professional.reviewCount} avaliações)</Text>
-                                            </View>
-                                        </CustomButton>
-                                    ))
-                                )}
-                            </View>
+                            <ScrollView style={styles.professionalsScroll} showsVerticalScrollIndicator={false}>
+                                <View style={styles.selectContainer}>
+                                    {professionals.length === 0 ? (
+                                        <Text style={styles.noProfessionalsText}>
+                                            {selectedSpecialty ? 'Nenhum profissional disponível para esta especialidade' : 'Selecione uma especialidade primeiro'}
+                                        </Text>
+                                    ) : (
+                                        professionals.map((professional) => (
+                                            <CustomButton
+                                                key={professional.id}
+                                                mode={selectedProfessional === professional.id ? 'contained' : 'outlined'}
+                                                onPress={() => setSelectedProfessional(professional.id)}
+                                                style={styles.professionalButton}
+                                            >
+                                                <View style={styles.professionalInfo}>
+                                                    <Text style={styles.professionalName}>{professional.name}</Text>
+                                                    <Text style={styles.professionalRating}>⭐ {professional.rating} ({professional.reviewCount} avaliações)</Text>
+                                                </View>
+                                            </CustomButton>
+                                        ))
+                                    )}
+                                </View>
+                            </ScrollView>
                         )}
                     </View>
 
-                    {/* Data */}
+                    {/* Input Date nativo */}
                     <View style={styles.inputContainer}>
                         <Text style={styles.label}>Data *</Text>
-                        <Button
-                            mode="outlined"
-                            onPress={showDatepicker}
-                            style={styles.dateTimeButton}
-                            icon="calendar"
-                        >
-                            {formatDate(date)}
-                        </Button>
-                        {showDatePicker && (
-                            <DateTimePicker
+                        <View style={styles.nativeInputContainer}>
+                            <input
+                                type="date"
                                 value={date}
-                                mode="date"
-                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                onChange={onDateChange}
-                                minimumDate={new Date()}
-                                locale="pt-BR"
+                                onChange={(e) => setDate(e.target.value)}
+                                min={getMinDate()}
+                                max={getMaxDate()}
+                                style={styles.nativeInput}
+                                required
                             />
-                        )}
+                            {date && (
+                                <Text style={styles.selectedDateText}>
+                                    Data selecionada: {formatDateForDisplay(date)}
+                                </Text>
+                            )}
+                        </View>
                     </View>
 
-                    {/* Horário */}
+                    {/* Input Time nativo */}
                     <View style={styles.inputContainer}>
                         <Text style={styles.label}>Horário *</Text>
-                        <Button
-                            mode="outlined"
-                            onPress={showTimepicker}
-                            style={styles.dateTimeButton}
-                            icon="clock"
-                        >
-                            {formatTime(time)}
-                        </Button>
-                        {showTimePicker && (
-                            <DateTimePicker
+                        <View style={styles.nativeInputContainer}>
+                            <input
+                                type="time"
                                 value={time}
-                                mode="time"
-                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                onChange={onTimeChange}
-                                locale="pt-BR"
-                                is24Hour={true}
+                                onChange={(e) => setTime(e.target.value)}
+                                style={styles.nativeInput}
+                                required
                             />
-                        )}
+                            {time && (
+                                <Text style={styles.selectedTimeText}>
+                                    Horário selecionado: {time}
+                                </Text>
+                            )}
+                        </View>
                     </View>
 
                     {/* Resumo do Agendamento */}
-                    {(selectedSpecialty || selectedProfessional) && (
+                    {(selectedSpecialty || selectedProfessional || date || time) && (
                         <Card style={styles.summaryCard}>
                             <Card.Content>
                                 <Title style={styles.summaryTitle}>Resumo do Agendamento</Title>
@@ -270,14 +252,18 @@ const BookingScreen = () => {
                                         {professionals.find(p => p.id === selectedProfessional)?.name}
                                     </Text>
                                 )}
-                                <Text style={styles.summaryText}>
-                                    <Text style={styles.summaryLabel}>Data: </Text>
-                                    {formatDate(date)}
-                                </Text>
-                                <Text style={styles.summaryText}>
-                                    <Text style={styles.summaryLabel}>Horário: </Text>
-                                    {formatTime(time)}
-                                </Text>
+                                {date && (
+                                    <Text style={styles.summaryText}>
+                                        <Text style={styles.summaryLabel}>Data: </Text>
+                                        {formatDateForDisplay(date)} ✅
+                                    </Text>
+                                )}
+                                {time && (
+                                    <Text style={styles.summaryText}>
+                                        <Text style={styles.summaryLabel}>Horário: </Text>
+                                        {time} ✅
+                                    </Text>
+                                )}
                             </Card.Content>
                         </Card>
                     )}
@@ -287,7 +273,7 @@ const BookingScreen = () => {
                         onPress={handleBooking}
                         style={styles.bookButton}
                         loading={loading}
-                        disabled={loading || !selectedSpecialty || !selectedProfessional}
+                        disabled={loading || !selectedSpecialty || !selectedProfessional || !date || !time}
                         icon="calendar-check"
                     >
                         Agendar Consulta
@@ -327,6 +313,41 @@ const styles = StyleSheet.create({
         marginBottom: 8,
         color: COLORS.text,
     },
+    nativeInputContainer: {
+        borderWidth: 1,
+        borderColor: COLORS.inputBorder,
+        borderRadius: 8,
+        backgroundColor: COLORS.inputBackground,
+        padding: 12,
+        minHeight: 50,
+        justifyContent: 'center',
+    },
+    nativeInput: {
+        width: '100%',
+        fontSize: 16,
+        border: 'none',
+        backgroundColor: 'transparent',
+        outline: 'none',
+        color: COLORS.text,
+    },
+    selectedDateText: {
+        marginTop: 8,
+        fontSize: 14,
+        color: COLORS.textSecondary,
+        fontStyle: 'italic',
+    },
+    selectedTimeText: {
+        marginTop: 8,
+        fontSize: 14,
+        color: COLORS.textSecondary,
+        fontStyle: 'italic',
+    },
+    specialtiesScroll: {
+        maxHeight: 100,
+    },
+    professionalsScroll: {
+        maxHeight: 200,
+    },
     selectContainer: {
         flexDirection: 'row',
         flexWrap: 'wrap',
@@ -341,6 +362,7 @@ const styles = StyleSheet.create({
     },
     professionalInfo: {
         alignItems: 'flex-start',
+        width: '100%',
     },
     professionalName: {
         fontWeight: 'bold',
@@ -350,11 +372,6 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: COLORS.textSecondary,
         marginTop: 2,
-    },
-    dateTimeButton: {
-        borderColor: COLORS.inputBorder,
-        backgroundColor: COLORS.inputBackground,
-        paddingVertical: 8,
     },
     loadingText: {
         textAlign: 'center',
@@ -367,6 +384,7 @@ const styles = StyleSheet.create({
         color: COLORS.textSecondary,
         fontStyle: 'italic',
         marginVertical: 10,
+        padding: 10,
     },
     summaryCard: {
         marginTop: 16,
@@ -380,6 +398,7 @@ const styles = StyleSheet.create({
     },
     summaryText: {
         marginBottom: 4,
+        fontSize: 14,
     },
     summaryLabel: {
         fontWeight: 'bold',
@@ -387,6 +406,7 @@ const styles = StyleSheet.create({
     },
     bookButton: {
         marginTop: 16,
+        paddingVertical: 8,
     },
 });
 
