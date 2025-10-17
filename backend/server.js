@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const db = require('./src/models');
+const db = require('./models'); // Caminho corrigido
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -11,9 +11,9 @@ app.use(cors());
 app.use(express.json());
 
 // Rotas
-app.use('/api/auth', require('./src/routes/auth'));
-app.use('/api/professionals', require('./src/routes/professionals'));
-app.use('/api/appointments', require('./src/routes/appointments'));
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/professionals', require('./routes/professionals'));
+app.use('/api/appointments', require('./routes/appointments'));
 
 // Rota de saúde
 app.get('/api/health', (req, res) => {
@@ -31,6 +31,17 @@ app.get('/', (req, res) => {
     });
 });
 
+// Middleware de erro
+app.use((error, req, res, next) => {
+    console.error('Erro:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+});
+
+// Rota não encontrada
+app.use('*', (req, res) => {
+    res.status(404).json({ error: 'Rota não encontrada' });
+});
+
 // Inicializar servidor
 const startServer = async () => {
     try {
@@ -40,8 +51,9 @@ const startServer = async () => {
         // Iniciar servidor
         app.listen(PORT, () => {
             console.log(`🚀 Servidor rodando na porta ${PORT}`);
-            console.log(`📊 Ambiente: ${process.env.NODE_ENV}`);
+            console.log(`📊 Ambiente: ${process.env.NODE_ENV || 'development'}`);
             console.log(`🔗 Health check: http://localhost:${PORT}/api/health`);
+            console.log(`🏥 API Base: http://localhost:${PORT}/api`);
         });
     } catch (error) {
         console.error('❌ Falha ao iniciar servidor:', error);
@@ -52,7 +64,9 @@ const startServer = async () => {
 // Manipular encerramento gracioso
 process.on('SIGINT', async () => {
     console.log('\n🛑 Encerrando servidor...');
-    await db.sequelize.close();
+    if (db.sequelize) {
+        await db.sequelize.close();
+    }
     process.exit(0);
 });
 

@@ -14,8 +14,8 @@ export const COLORS = {
 
 // ATUALIZE COM A URL DO SEU BACKEND
 export const API_CONFIG = {
-    baseURL: 'http://localhost:5000', // ou seu backend real
-    timeout: 10000,
+  baseURL: 'http://localhost:3001/api', // Backend local
+  timeout: 10000,
 };
 
 export const STORAGE_KEYS = {
