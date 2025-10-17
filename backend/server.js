@@ -2,13 +2,6 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
-// Import routes
-const authRoutes = require('./routes/auth');
-const userRoutes = require('./routes/users');
-const professionalRoutes = require('./routes/professionals');
-const serviceRoutes = require('./routes/services');
-const appointmentRoutes = require('./routes/appointments');
-
 const app = express();
 
 // Middleware
@@ -21,58 +14,87 @@ app.use((req, res, next) => {
     next();
 });
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/professionals', professionalRoutes);
-app.use('/api/services', serviceRoutes);
-app.use('/api/appointments', appointmentRoutes);
-
-// Health check endpoint
+// Health check
 app.get('/api/health', (req, res) => {
     res.json({
         status: 'success',
         message: 'API da Clínica Médica S++ está funcionando!',
-        timestamp: new Date().toISOString(),
-        environment: process.env.NODE_ENV || 'development'
+        timestamp: new Date().toISOString()
     });
 });
 
-// Root endpoint
+// Rota principal
 app.get('/', (req, res) => {
     res.json({
         message: 'Bem-vindo à API da Clínica Médica S++',
         version: '1.0.0',
         endpoints: {
             auth: {
-                'POST /api/auth/register': 'Registrar novo usuário',
+                'POST /api/auth/register': 'Registrar usuário',
                 'POST /api/auth/login': 'Login de usuário'
             },
             users: {
-                'GET /api/users/me': 'Obter perfil do usuário logado',
-                'PUT /api/users/me': 'Atualizar perfil do usuário'
+                'GET /api/users/me': 'Perfil do usuário (autenticado)'
             },
             professionals: {
-                'GET /api/professionals': 'Listar todos os profissionais',
-                'GET /api/professionals/:id': 'Obter profissional específico',
-                'GET /api/professionals/:id/availability': 'Obter horários disponíveis'
+                'GET /api/professionals': 'Listar profissionais',
+                'GET /api/professionals/:id': 'Obter profissional',
+                'GET /api/professionals/:id/availability': 'Horários disponíveis'
             },
             services: {
-                'GET /api/services': 'Listar todos os serviços',
-                'GET /api/services/:id': 'Obter serviço específico'
+                'GET /api/services': 'Listar serviços'
             },
             appointments: {
-                'GET /api/appointments/me': 'Listar agendamentos do usuário',
-                'POST /api/appointments': 'Criar novo agendamento',
-                'PUT /api/appointments/:id': 'Atualizar agendamento',
-                'DELETE /api/appointments/:id': 'Cancelar agendamento'
+                'GET /api/appointments/me': 'Meus agendamentos',
+                'POST /api/appointments': 'Criar agendamento'
             }
         }
     });
 });
 
-// 404 handler
-app.use('*', (req, res) => {
+// Carregar rotas
+try {
+    const authRoutes = require('./routes/auth');
+    app.use('/api/auth', authRoutes);
+    console.log('✅ Rotas de autenticação carregadas');
+} catch (error) {
+    console.log('❌ Erro ao carregar rotas de auth:', error.message);
+}
+
+try {
+    const userRoutes = require('./routes/users');
+    app.use('/api/users', userRoutes);
+    console.log('✅ Rotas de usuários carregadas');
+} catch (error) {
+    console.log('❌ Erro ao carregar rotas de users:', error.message);
+}
+
+try {
+    const professionalRoutes = require('./routes/professionals');
+    app.use('/api/professionals', professionalRoutes);
+    console.log('✅ Rotas de profissionais carregadas');
+} catch (error) {
+    console.log('❌ Erro ao carregar rotas de professionals:', error.message);
+}
+
+try {
+    const serviceRoutes = require('./routes/services');
+    app.use('/api/services', serviceRoutes);
+    console.log('✅ Rotas de serviços carregadas');
+} catch (error) {
+    console.log('❌ Erro ao carregar rotas de services:', error.message);
+}
+
+try {
+    const appointmentRoutes = require('./routes/appointments');
+    app.use('/api/appointments', appointmentRoutes);
+    console.log('✅ Rotas de agendamentos carregadas');
+} catch (error) {
+    console.log('❌ Erro ao carregar rotas de appointments:', error.message);
+}
+
+// Rota 404 - SEM '*' que causa o erro
+app.use((req, res) => {
     res.status(404).json({
         status: 'error',
         message: 'Rota não encontrada',
@@ -80,26 +102,23 @@ app.use('*', (req, res) => {
     });
 });
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-    console.error('Erro não tratado:', err.stack);
-
+// Error handler
+app.use((error, req, res, next) => {
+    console.error('Erro:', error);
     res.status(500).json({
         status: 'error',
-        message: 'Erro interno do servidor',
-        ...(process.env.NODE_ENV === 'development' && { error: err.message })
+        message: 'Erro interno do servidor'
     });
 });
 
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-    console.log('='.repeat(50));
-    console.log('🚀 Servidor da Clínica Médica S++');
-    console.log('='.repeat(50));
-    console.log(`📡 Porta: ${PORT}`);
-    console.log(`🌍 Ambiente: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`🔗 URL: http://localhost:${PORT}`);
-    console.log(`❤️  Health Check: http://localhost:${PORT}/api/health`);
-    console.log('='.repeat(50));
+    console.log('='.repeat(60));
+    console.log('🚀 SERVIDOR INICIADO COM SUCESSO!');
+    console.log('='.repeat(60));
+    console.log(`📍 Porta: ${PORT}`);
+    console.log(`🌐 URL: http://localhost:${PORT}`);
+    console.log(`❤️  Health: http://localhost:${PORT}/api/health`);
+    console.log('='.repeat(60));
 });
