@@ -1,25 +1,40 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Platform } from 'react-native';
-import { Title, Text, Card } from 'react-native-paper';
+import { Title, Text, Card, ActivityIndicator } from 'react-native-paper';
 import CustomInput from '../../components/CustomInput';
 import CustomButton from '../../components/CustomButton';
 import { COLORS } from '../../utils/constants';
-import api from '../../services/api';
+import { getProfessionals, getAppointments, appointments } from '../../services/api';
 
-const BookingScreen = () => {
+const BookingScreen = ({ route, navigation }) => {
+    const { professional: routeProfessional } = route.params || {};
+
     const [specialties, setSpecialties] = useState([]);
     const [professionals, setProfessionals] = useState([]);
     const [selectedSpecialty, setSelectedSpecialty] = useState('');
     const [selectedProfessional, setSelectedProfessional] = useState('');
     const [date, setDate] = useState('');
     const [time, setTime] = useState('');
+    const [availableSlots, setAvailableSlots] = useState([]);
     const [loading, setLoading] = useState(false);
     const [professionalLoading, setProfessionalLoading] = useState(false);
+    const [slotsLoading, setSlotsLoading] = useState(false);
+    const [notes, setNotes] = useState('');
 
     // Buscar especialidades disponíveis
     useEffect(() => {
         fetchSpecialties();
     }, []);
+
+    // Se veio profissional da navegação, pré-selecionar
+    useEffect(() => {
+        if (routeProfessional) {
+            setSelectedProfessional(routeProfessional.id);
+            setSelectedSpecialty(routeProfessional.specialty);
+            // Buscar profissionais da mesma especialidade
+            fetchProfessionalsBySpecialty(routeProfessional.specialty);
+        }
+    }, [routeProfessional]);
 
     // Buscar profissionais quando uma especialidade for selecionada
     useEffect(() => {
@@ -31,10 +46,20 @@ const BookingScreen = () => {
         }
     }, [selectedSpecialty]);
 
+    // Buscar horários disponíveis quando profissional e data mudarem
+    useEffect(() => {
+        if (selectedProfessional && date) {
+            fetchAvailableSlots(selectedProfessional, date);
+        } else {
+            setAvailableSlots([]);
+            setTime('');
+        }
+    }, [selectedProfessional, date]);
+
     const fetchSpecialties = async () => {
         try {
-            const response = await api.get('/professionals/specialties');
-            setSpecialties(response.data);
+            const specialtiesData = await getProfessionals.specialties();
+            setSpecialties(specialtiesData);
         } catch (error) {
             console.error('Erro ao buscar especialidades:', error);
             setSpecialties([
@@ -53,31 +78,33 @@ const BookingScreen = () => {
     const fetchProfessionalsBySpecialty = async (specialty) => {
         setProfessionalLoading(true);
         try {
-            const response = await api.get('/professionals', {
-                params: { specialty }
-            });
-            setProfessionals(response.data);
+            const professionalsData = await getProfessionals.bySpecialty(specialty);
+            setProfessionals(professionalsData);
         } catch (error) {
             console.error('Erro ao buscar profissionais:', error);
-            const allProfessionals = await api.get('/professionals');
-            const filtered = allProfessionals.data.filter(prof =>
-                prof.specialty.toLowerCase().includes(specialty.toLowerCase())
-            );
-            setProfessionals(filtered);
+            alert('Erro ao carregar profissionais');
         } finally {
             setProfessionalLoading(false);
         }
     };
 
-    // Função para formatar data para o formato YYYY-MM-DD (input date)
-    const getTodayDate = () => {
-        const today = new Date();
-        return today.toISOString().split('T')[0];
+    const fetchAvailableSlots = async (professionalId, date) => {
+        setSlotsLoading(true);
+        try {
+            const slots = await getAppointments.availableSlots(professionalId, date);
+            setAvailableSlots(slots);
+        } catch (error) {
+            console.error('Erro ao buscar horários disponíveis:', error);
+            setAvailableSlots([]);
+        } finally {
+            setSlotsLoading(false);
+        }
     };
 
     // Função para obter data mínima (hoje)
     const getMinDate = () => {
-        return getTodayDate();
+        const today = new Date();
+        return today.toISOString().split('T')[0];
     };
 
     // Função para obter data máxima (1 ano a partir de hoje)
@@ -96,42 +123,39 @@ const BookingScreen = () => {
 
     const handleBooking = async () => {
         if (!selectedSpecialty || !selectedProfessional || !date || !time) {
-            alert('Por favor, preencha todos os campos');
-            return;
-        }
-
-        // Verificar se a data não é no passado
-        const selectedDate = new Date(date);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        if (selectedDate < today) {
-            alert('Por favor, selecione uma data futura');
+            alert('Por favor, preencha todos os campos obrigatórios');
             return;
         }
 
         setLoading(true);
         try {
-            await api.post('/appointments', {
+            await appointments.create({
                 specialty: selectedSpecialty,
                 professionalId: selectedProfessional,
-                date: date, // Já está no formato YYYY-MM-DD
-                time: time, // Já está no formato HH:MM
+                date: date,
+                time: time,
+                notes: notes || undefined,
             });
 
             alert('Consulta agendada com sucesso!');
-            // Limpar formulário
-            setSelectedSpecialty('');
-            setSelectedProfessional('');
-            setDate('');
-            setTime('');
-            setProfessionals([]);
+            // Navegar de volta para o Dashboard
+            navigation.navigate('Dashboard');
         } catch (error) {
             console.error('Erro ao agendar consulta:', error);
-            alert('Erro ao agendar consulta. Tente novamente.');
+            if (error.response?.status === 409) {
+                alert('Este horário já está ocupado. Por favor, escolha outro horário.');
+            } else {
+                alert('Erro ao agendar consulta. Tente novamente.');
+            }
         } finally {
             setLoading(false);
         }
+    };
+
+    const getSelectedProfessionalName = () => {
+        if (!selectedProfessional) return '';
+        const professional = professionals.find(p => p.id === selectedProfessional);
+        return professional?.name || '';
     };
 
     return (
@@ -155,6 +179,7 @@ const BookingScreen = () => {
                                         onPress={() => setSelectedSpecialty(specialty)}
                                         style={styles.specialtyButton}
                                         compact
+                                        disabled={!!routeProfessional} // Desabilitar se veio da navegação
                                     >
                                         {specialty}
                                     </CustomButton>
@@ -167,7 +192,7 @@ const BookingScreen = () => {
                     <View style={styles.inputContainer}>
                         <Text style={styles.label}>Profissional *</Text>
                         {professionalLoading ? (
-                            <Text style={styles.loadingText}>Carregando profissionais...</Text>
+                            <ActivityIndicator size="small" color={COLORS.primary} />
                         ) : (
                             <ScrollView style={styles.professionalsScroll} showsVerticalScrollIndicator={false}>
                                 <View style={styles.selectContainer}>
@@ -182,6 +207,7 @@ const BookingScreen = () => {
                                                 mode={selectedProfessional === professional.id ? 'contained' : 'outlined'}
                                                 onPress={() => setSelectedProfessional(professional.id)}
                                                 style={styles.professionalButton}
+                                                disabled={!!routeProfessional} // Desabilitar se veio da navegação
                                             >
                                                 <View style={styles.professionalInfo}>
                                                     <Text style={styles.professionalName}>{professional.name}</Text>
@@ -216,24 +242,44 @@ const BookingScreen = () => {
                         </View>
                     </View>
 
-                    {/* Input Time nativo */}
-                    <View style={styles.inputContainer}>
-                        <Text style={styles.label}>Horário *</Text>
-                        <View style={styles.nativeInputContainer}>
-                            <input
-                                type="time"
-                                value={time}
-                                onChange={(e) => setTime(e.target.value)}
-                                style={styles.nativeInput}
-                                required
-                            />
-                            {time && (
-                                <Text style={styles.selectedTimeText}>
-                                    Horário selecionado: {time}
+                    {/* Horários Disponíveis */}
+                    {date && selectedProfessional && (
+                        <View style={styles.inputContainer}>
+                            <Text style={styles.label}>Horários Disponíveis *</Text>
+                            {slotsLoading ? (
+                                <ActivityIndicator size="small" color={COLORS.primary} />
+                            ) : availableSlots.length === 0 ? (
+                                <Text style={styles.noSlotsText}>
+                                    Nenhum horário disponível para esta data
                                 </Text>
+                            ) : (
+                                <View style={styles.timeSlotsContainer}>
+                                    {availableSlots.map((slot, index) => (
+                                        <CustomButton
+                                            key={index}
+                                            mode={time === slot ? 'contained' : 'outlined'}
+                                            onPress={() => setTime(slot)}
+                                            style={styles.timeSlotButton}
+                                            compact
+                                        >
+                                            {slot}
+                                        </CustomButton>
+                                    ))}
+                                </View>
                             )}
                         </View>
-                    </View>
+                    )}
+
+                    {/* Observações */}
+                    <CustomInput
+                        label="Observações (opcional)"
+                        value={notes}
+                        onChangeText={setNotes}
+                        placeholder="Alguma observação sobre a consulta..."
+                        left={<CustomInput.Icon icon="note" />}
+                        multiline
+                        numberOfLines={3}
+                    />
 
                     {/* Resumo do Agendamento */}
                     {(selectedSpecialty || selectedProfessional || date || time) && (
@@ -249,7 +295,7 @@ const BookingScreen = () => {
                                 {selectedProfessional && (
                                     <Text style={styles.summaryText}>
                                         <Text style={styles.summaryLabel}>Profissional: </Text>
-                                        {professionals.find(p => p.id === selectedProfessional)?.name}
+                                        {getSelectedProfessionalName()}
                                     </Text>
                                 )}
                                 {date && (
@@ -262,6 +308,12 @@ const BookingScreen = () => {
                                     <Text style={styles.summaryText}>
                                         <Text style={styles.summaryLabel}>Horário: </Text>
                                         {time} ✅
+                                    </Text>
+                                )}
+                                {notes && (
+                                    <Text style={styles.summaryText}>
+                                        <Text style={styles.summaryLabel}>Observações: </Text>
+                                        {notes}
                                     </Text>
                                 )}
                             </Card.Content>
@@ -313,35 +365,6 @@ const styles = StyleSheet.create({
         marginBottom: 8,
         color: COLORS.text,
     },
-    nativeInputContainer: {
-        borderWidth: 1,
-        borderColor: COLORS.inputBorder,
-        borderRadius: 8,
-        backgroundColor: COLORS.inputBackground,
-        padding: 12,
-        minHeight: 50,
-        justifyContent: 'center',
-    },
-    nativeInput: {
-        width: '100%',
-        fontSize: 16,
-        border: 'none',
-        backgroundColor: 'transparent',
-        outline: 'none',
-        color: COLORS.text,
-    },
-    selectedDateText: {
-        marginTop: 8,
-        fontSize: 14,
-        color: COLORS.textSecondary,
-        fontStyle: 'italic',
-    },
-    selectedTimeText: {
-        marginTop: 8,
-        fontSize: 14,
-        color: COLORS.textSecondary,
-        fontStyle: 'italic',
-    },
     specialtiesScroll: {
         maxHeight: 100,
     },
@@ -373,11 +396,42 @@ const styles = StyleSheet.create({
         color: COLORS.textSecondary,
         marginTop: 2,
     },
-    loadingText: {
+    nativeInputContainer: {
+        borderWidth: 1,
+        borderColor: COLORS.inputBorder,
+        borderRadius: 8,
+        backgroundColor: COLORS.inputBackground,
+        padding: 12,
+        minHeight: 50,
+        justifyContent: 'center',
+    },
+    nativeInput: {
+        width: '100%',
+        fontSize: 16,
+        border: 'none',
+        backgroundColor: 'transparent',
+        outline: 'none',
+        color: COLORS.text,
+    },
+    selectedDateText: {
+        marginTop: 8,
+        fontSize: 14,
+        color: COLORS.textSecondary,
+        fontStyle: 'italic',
+    },
+    timeSlotsContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+    },
+    timeSlotButton: {
+        margin: 2,
+    },
+    noSlotsText: {
         textAlign: 'center',
         color: COLORS.textSecondary,
         fontStyle: 'italic',
-        marginVertical: 10,
+        padding: 10,
     },
     noProfessionalsText: {
         textAlign: 'center',

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { getToken, removeToken } from '../storage/authStorage';
+import { getToken } from '../storage/authStorage';
 import { API_CONFIG } from '../utils/constants';
 
 // Configuração base do Axios para comunicação com a API backend
@@ -32,7 +32,6 @@ api.interceptors.response.use(
         if (error.response?.status === 401) {
             // Token expirado ou inválido - limpar storage e redirecionar para login
             await removeToken();
-            // Você pode adicionar um evento global ou usar Context para redirecionar
             console.log('Token expirado, redirecionando para login...');
         }
 
@@ -44,5 +43,87 @@ api.interceptors.response.use(
         return Promise.reject(error);
     }
 );
+
+// Funções de API para Agendamentos
+export const getAppointments = {
+    // Buscar todos os agendamentos do usuário
+    myAppointments: async () => {
+        const response = await api.get('/appointments/my-appointments');
+        return response.data;
+    },
+
+    // Buscar agendamentos futuros
+    upcoming: async () => {
+        const response = await api.get('/appointments/upcoming');
+        return response.data;
+    },
+
+    // Buscar horários disponíveis
+    availableSlots: async (professionalId, date) => {
+        const response = await api.get('/appointments/available-slots', {
+            params: { professionalId, date }
+        });
+        return response.data;
+    },
+};
+
+// Funções de API para Profissionais
+export const getProfessionals = {
+    // Buscar todos os profissionais
+    all: async () => {
+        const response = await api.get('/professionals');
+        return response.data;
+    },
+
+    // Buscar por especialidade
+    bySpecialty: async (specialty) => {
+        const response = await api.get('/professionals', {
+            params: { specialty }
+        });
+        return response.data;
+    },
+
+    // Buscar especialidades disponíveis
+    specialties: async () => {
+        const response = await api.get('/professionals/specialties');
+        return response.data;
+    },
+};
+
+// Funções de API para Autenticação
+export const auth = {
+    // Atualizar perfil do usuário
+    updateProfile: async (userData) => {
+        const response = await api.put('/auth/profile', userData);
+        return response.data;
+    },
+
+    // Buscar dados do usuário
+    getProfile: async () => {
+        const response = await api.get('/auth/me');
+        return response.data;
+    },
+};
+
+// Funções de API para Agendamentos (CRUD)
+export const appointments = {
+    // Criar agendamento
+    create: async (appointmentData) => {
+        const response = await api.post('/appointments', appointmentData);
+        return response.data;
+    },
+
+    // Cancelar agendamento
+    cancel: async (appointmentId) => {
+        const response = await api.delete(`/appointments/${appointmentId}`);
+        return response.data;
+    },
+
+    // Atualizar agendamento
+    update: async (appointmentId, updateData) => {
+        const response = await api.put(`/appointments/${appointmentId}`, updateData);
+        return response.data;
+    },
+};
 
 export default api;

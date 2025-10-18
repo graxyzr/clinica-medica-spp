@@ -2,17 +2,27 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { Title, Card, Text, Avatar, ActivityIndicator } from 'react-native-paper';
 import { COLORS } from '../../utils/constants';
-import api from '../../services/api';
+import { getProfessionals } from '../../services/api';
+import CustomButton from '../../components/CustomButton';
 
-const ProfessionalsScreen = () => {
+const ProfessionalsScreen = ({ navigation }) => {
     const [professionals, setProfessionals] = useState([]);
+    const [filteredProfessionals, setFilteredProfessionals] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [selectedSpecialty, setSelectedSpecialty] = useState('all');
+    const [specialties, setSpecialties] = useState([]);
 
     const fetchProfessionals = async () => {
         try {
-            const response = await api.get('/professionals');
-            setProfessionals(response.data);
+            const [professionalsData, specialtiesData] = await Promise.all([
+                getProfessionals.all(),
+                getProfessionals.specialties()
+            ]);
+
+            setProfessionals(professionalsData);
+            setFilteredProfessionals(professionalsData);
+            setSpecialties(['all', ...specialtiesData]);
         } catch (error) {
             console.error('Erro ao buscar profissionais:', error);
             alert('Erro ao carregar profissionais');
@@ -26,9 +36,27 @@ const ProfessionalsScreen = () => {
         fetchProfessionals();
     }, []);
 
+    useEffect(() => {
+        if (selectedSpecialty === 'all') {
+            setFilteredProfessionals(professionals);
+        } else {
+            const filtered = professionals.filter(prof =>
+                prof.specialty === selectedSpecialty
+            );
+            setFilteredProfessionals(filtered);
+        }
+    }, [selectedSpecialty, professionals]);
+
     const onRefresh = () => {
         setRefreshing(true);
         fetchProfessionals();
+    };
+
+    const handleProfessionalSelect = (professional) => {
+        // Navegar para BookingScreen passando o profissional como parâmetro
+        navigation.navigate('Booking', {
+            professional: professional
+        });
     };
 
     if (loading) {
@@ -52,27 +80,66 @@ const ProfessionalsScreen = () => {
                 <Text style={styles.subtitle}>Encontre o especialista ideal</Text>
             </View>
 
-            <View style={styles.cardsContainer}>
-                {professionals.length === 0 ? (
+            {/* Filtro por Especialidade */}
+            <Card style={styles.filterCard}>
+                <Card.Content>
+                    <Text style={styles.filterLabel}>Filtrar por especialidade:</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.specialtiesScroll}>
+                        <View style={styles.specialtiesContainer}>
+                            {specialties.map((specialty, index) => (
+                                <CustomButton
+                                    key={index}
+                                    mode={selectedSpecialty === specialty ? 'contained' : 'outlined'}
+                                    onPress={() => setSelectedSpecialty(specialty)}
+                                    style={styles.specialtyButton}
+                                    compact
+                                >
+                                    {specialty === 'all' ? 'Todas' : specialty}
+                                </CustomButton>
+                            ))}
+                        </View>
+                    </ScrollView>
+                </Card.Content>
+            </Card>
+
+            {/* Lista de Profissionais */}
+            <View style={styles.professionalsContainer}>
+                {filteredProfessionals.length === 0 ? (
                     <Card style={styles.emptyCard}>
                         <Card.Content>
                             <Text style={styles.emptyText}>
-                                Nenhum profissional disponível no momento
+                                Nenhum profissional encontrado {selectedSpecialty !== 'all' ? `para ${selectedSpecialty}` : ''}
                             </Text>
                         </Card.Content>
                     </Card>
                 ) : (
-                    professionals.map((professional) => (
-                        <Card key={professional.id} style={styles.card}>
-                            <Card.Content style={styles.cardContent}>
-                                <Avatar.Icon size={60} icon="doctor" style={styles.avatar} />
-                                <View style={styles.cardText}>
-                                    <Title>{professional.name}</Title>
-                                    <Text>{professional.specialty}</Text>
-                                    <Text style={styles.rating}>
-                                        ⭐ {professional.rating} ({professional.reviewCount} avaliações)
-                                    </Text>
+                    filteredProfessionals.map((professional) => (
+                        <Card key={professional.id} style={styles.professionalCard}>
+                            <Card.Content>
+                                <View style={styles.professionalHeader}>
+                                    <Avatar.Icon size={60} icon="doctor" style={styles.avatar} />
+                                    <View style={styles.professionalInfo}>
+                                        <Title style={styles.professionalName}>{professional.name}</Title>
+                                        <Text style={styles.professionalSpecialty}>{professional.specialty}</Text>
+                                        <Text style={styles.professionalRating}>
+                                            ⭐ {professional.rating} ({professional.reviewCount} avaliações)
+                                        </Text>
+                                        {professional.description && (
+                                            <Text style={styles.professionalDescription}>
+                                                {professional.description}
+                                            </Text>
+                                        )}
+                                    </View>
                                 </View>
+
+                                <CustomButton
+                                    mode="contained"
+                                    onPress={() => handleProfessionalSelect(professional)}
+                                    style={styles.bookButton}
+                                    icon="calendar-plus"
+                                >
+                                    Agendar Consulta
+                                </CustomButton>
                             </Card.Content>
                         </Card>
                     ))
@@ -105,36 +172,77 @@ const styles = StyleSheet.create({
         color: COLORS.textSecondary,
         marginTop: 8,
     },
-    cardsContainer: {
-        padding: 16,
+    filterCard: {
+        margin: 16,
+        backgroundColor: COLORS.surface,
     },
-    card: {
-        marginBottom: 16,
-        elevation: 2,
+    filterLabel: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginBottom: 12,
+        color: COLORS.text,
+    },
+    specialtiesScroll: {
+        maxHeight: 60,
+    },
+    specialtiesContainer: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    specialtyButton: {
+        margin: 2,
+    },
+    professionalsContainer: {
+        padding: 16,
     },
     emptyCard: {
         alignItems: 'center',
         padding: 20,
+        backgroundColor: COLORS.surface,
     },
     emptyText: {
         color: COLORS.textSecondary,
         textAlign: 'center',
     },
-    cardContent: {
+    professionalCard: {
+        marginBottom: 16,
+        backgroundColor: COLORS.surface,
+        elevation: 2,
+    },
+    professionalHeader: {
         flexDirection: 'row',
-        alignItems: 'center',
-        padding: 16,
+        alignItems: 'flex-start',
+        marginBottom: 16,
     },
     avatar: {
         backgroundColor: COLORS.primary,
         marginRight: 16,
     },
-    cardText: {
+    professionalInfo: {
         flex: 1,
     },
-    rating: {
+    professionalName: {
+        fontSize: 18,
+        marginBottom: 4,
+    },
+    professionalSpecialty: {
+        fontSize: 16,
+        color: COLORS.primary,
+        fontWeight: 'bold',
+        marginBottom: 4,
+    },
+    professionalRating: {
+        fontSize: 14,
         color: COLORS.textSecondary,
-        marginTop: 4,
+        marginBottom: 8,
+    },
+    professionalDescription: {
+        fontSize: 14,
+        color: COLORS.textSecondary,
+        fontStyle: 'italic',
+    },
+    bookButton: {
+        marginTop: 8,
     },
 });
 
