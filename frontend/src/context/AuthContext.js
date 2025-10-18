@@ -115,6 +115,17 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    /**
+     * Função para atualizar informações do usuário
+     * @param {object} newUserInfo - Novos dados do usuário
+     */
+    const updateUserInfo = (newUserInfo) => {
+        setUserInfo(prev => ({
+            ...prev,
+            ...newUserInfo
+        }));
+    };
+
     const value = {
         isLoading,
         userToken,
@@ -122,6 +133,7 @@ export const AuthProvider = ({ children }) => {
         signIn,
         signOut,
         signUp,
+        updateUserInfo, // Nova função exportada
     };
 
     return (
