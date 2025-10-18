@@ -4,7 +4,7 @@ import { Title, Card, Text, Avatar, ActivityIndicator, Button, Modal, Portal, Pr
 import { AuthContext } from '../../context/AuthContext';
 import CustomButton from '../../components/CustomButton';
 import { COLORS } from '../../utils/constants';
-import api from '../../services/api';
+import { appointments } from '../../services/api';
 
 /**
  * Tela principal/Dashboard do aplicativo
@@ -12,7 +12,7 @@ import api from '../../services/api';
  */
 const DashboardScreen = ({ navigation }) => {
     const { userInfo, signOut } = useContext(AuthContext);
-    const [appointments, setAppointments] = useState([]);
+    const [appointmentsList, setAppointmentsList] = useState([]);
     const [upcomingAppointments, setUpcomingAppointments] = useState([]);
     const [pastAppointments, setPastAppointments] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -20,24 +20,32 @@ const DashboardScreen = ({ navigation }) => {
     const [filter, setFilter] = useState('upcoming'); // 'upcoming', 'past', 'all'
     const [cancelModalVisible, setCancelModalVisible] = useState(false);
     const [selectedAppointment, setSelectedAppointment] = useState(null);
+    const [canceling, setCanceling] = useState(false);
 
     const fetchAppointments = async () => {
         try {
             setLoading(true);
             // Buscar todos os agendamentos do usuário
-            const response = await api.get('/appointments/my-appointments');
-            const allAppointments = response.data;
+            const response = await appointments.myAppointments();
+            const allAppointments = response;
 
-            setAppointments(allAppointments);
+            setAppointmentsList(allAppointments);
 
             // Filtrar agendamentos
             const today = new Date();
-            const upcoming = allAppointments.filter(apt =>
-                new Date(apt.date + ' ' + apt.time) >= today && apt.status === 'scheduled'
-            );
-            const past = allAppointments.filter(apt =>
-                new Date(apt.date + ' ' + apt.time) < today || apt.status !== 'scheduled'
-            );
+            today.setHours(0, 0, 0, 0); // Resetar horas para comparar apenas a data
+
+            const upcoming = allAppointments.filter(apt => {
+                const appointmentDate = new Date(apt.date);
+                appointmentDate.setHours(0, 0, 0, 0);
+                return appointmentDate >= today && apt.status === 'scheduled';
+            });
+
+            const past = allAppointments.filter(apt => {
+                const appointmentDate = new Date(apt.date);
+                appointmentDate.setHours(0, 0, 0, 0);
+                return appointmentDate < today || apt.status !== 'scheduled';
+            });
 
             setUpcomingAppointments(upcoming);
             setPastAppointments(past);
@@ -63,15 +71,19 @@ const DashboardScreen = ({ navigation }) => {
     const handleCancelAppointment = async () => {
         if (!selectedAppointment) return;
 
+        setCanceling(true);
         try {
-            await api.delete(`/appointments/${selectedAppointment.id}`);
+            await appointments.cancel(selectedAppointment.id);
             alert('Agendamento cancelado com sucesso!');
             setCancelModalVisible(false);
             setSelectedAppointment(null);
             fetchAppointments(); // Recarregar lista
         } catch (error) {
             console.error('Erro ao cancelar agendamento:', error);
-            alert('Erro ao cancelar agendamento');
+            console.log('Detalhes do erro:', error.response?.data || error.message);
+            alert('Erro ao cancelar agendamento. Tente novamente.');
+        } finally {
+            setCanceling(false);
         }
     };
 
@@ -87,7 +99,7 @@ const DashboardScreen = ({ navigation }) => {
             case 'past':
                 return pastAppointments;
             case 'all':
-                return appointments;
+                return appointmentsList;
             default:
                 return upcomingAppointments;
         }
@@ -102,13 +114,13 @@ const DashboardScreen = ({ navigation }) => {
     const getStatusColor = (status) => {
         switch (status) {
             case 'scheduled':
-                return '#4CAF50';
+                return COLORS.success; // Verde
             case 'completed':
-                return '#2196F3';
+                return COLORS.info; // Azul
             case 'cancelled':
-                return '#F44336';
+                return COLORS.error; // Vermelho
             default:
-                return COLORS.textSecondary;
+                return COLORS.textTertiary;
         }
     };
 
@@ -186,7 +198,7 @@ const DashboardScreen = ({ navigation }) => {
                         style={styles.filterButton}
                         compact
                     >
-                        Todos ({appointments.length})
+                        Todos ({appointmentsList.length})
                     </CustomButton>
                 </View>
 
@@ -223,7 +235,7 @@ const DashboardScreen = ({ navigation }) => {
                                     <View style={styles.appointmentHeader}>
                                         <View style={styles.appointmentInfo}>
                                             <Text style={styles.appointmentDoctor}>
-                                                Dr(a). {appointment.professional?.name}
+                                                Dr(a). {appointment.professional?.name || 'Profissional não encontrado'}
                                             </Text>
                                             <Text style={styles.appointmentSpecialty}>
                                                 {appointment.specialty}
@@ -245,8 +257,8 @@ const DashboardScreen = ({ navigation }) => {
                                         </Text>
                                     )}
 
-                                    {/* Ações */}
-                                    {appointment.status === 'scheduled' && new Date(appointment.date + ' ' + appointment.time) > new Date() && (
+                                    {/* Ações - Mostrar apenas para agendamentos futuros e com status scheduled */}
+                                    {appointment.status === 'scheduled' && (
                                         <View style={styles.actionsContainer}>
                                             <Button
                                                 mode="outlined"
@@ -271,8 +283,8 @@ const DashboardScreen = ({ navigation }) => {
                         <Card.Content style={styles.cardContent}>
                             <Avatar.Icon size={50} icon="calendar-plus" style={styles.cardIcon} />
                             <View style={styles.cardText}>
-                                <Title>Agendar Consulta</Title>
-                                <Text>Marque uma nova consulta</Text>
+                                <Title style={styles.cardTitle}>Agendar Consulta</Title>
+                                <Text style={styles.cardDescription}>Marque uma nova consulta</Text>
                             </View>
                         </Card.Content>
                     </Card>
@@ -281,8 +293,8 @@ const DashboardScreen = ({ navigation }) => {
                         <Card.Content style={styles.cardContent}>
                             <Avatar.Icon size={50} icon="doctor" style={styles.cardIcon} />
                             <View style={styles.cardText}>
-                                <Title>Profissionais</Title>
-                                <Text>Encontre especialistas</Text>
+                                <Title style={styles.cardTitle}>Profissionais</Title>
+                                <Text style={styles.cardDescription}>Encontre especialistas</Text>
                             </View>
                         </Card.Content>
                     </Card>
@@ -302,21 +314,31 @@ const DashboardScreen = ({ navigation }) => {
             <Portal>
                 <Modal
                     visible={cancelModalVisible}
-                    onDismiss={() => setCancelModalVisible(false)}
+                    onDismiss={() => {
+                        setCancelModalVisible(false);
+                        setSelectedAppointment(null);
+                    }}
                     contentContainerStyle={styles.modalContainer}
                 >
                     <Title style={styles.modalTitle}>Cancelar Agendamento</Title>
                     <Text style={styles.modalText}>
-                        Tem certeza que deseja cancelar a consulta com {selectedAppointment?.professional?.name}?
+                        Tem certeza que deseja cancelar a consulta com {selectedAppointment?.professional?.name || 'o profissional'}?
                     </Text>
                     <Text style={styles.modalSubtext}>
                         Data: {selectedAppointment && formatAppointmentDate(selectedAppointment.date, selectedAppointment.time)}
                     </Text>
+                    <Text style={styles.modalWarning}>
+                        Esta ação não pode ser desfeita.
+                    </Text>
                     <View style={styles.modalActions}>
                         <Button
                             mode="outlined"
-                            onPress={() => setCancelModalVisible(false)}
+                            onPress={() => {
+                                setCancelModalVisible(false);
+                                setSelectedAppointment(null);
+                            }}
                             style={styles.modalButton}
+                            disabled={canceling}
                         >
                             Manter
                         </Button>
@@ -325,8 +347,10 @@ const DashboardScreen = ({ navigation }) => {
                             onPress={handleCancelAppointment}
                             style={styles.modalButton}
                             buttonColor={COLORS.error}
+                            loading={canceling}
+                            disabled={canceling}
                         >
-                            Cancelar Consulta
+                            {canceling ? 'Cancelando...' : 'Cancelar Consulta'}
                         </Button>
                     </View>
                 </Modal>
@@ -344,10 +368,12 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+        backgroundColor: COLORS.background,
     },
     loadingText: {
         marginTop: 16,
         color: COLORS.textSecondary,
+        fontSize: 16,
     },
     header: {
         alignItems: 'center',
@@ -363,6 +389,7 @@ const styles = StyleSheet.create({
         fontSize: 20,
         marginBottom: 8,
         textAlign: 'center',
+        color: COLORS.text, // Cor escura para melhor contraste
     },
     subtitle: {
         color: COLORS.textSecondary,
@@ -386,7 +413,8 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 18,
         marginBottom: 16,
-        color: COLORS.text,
+        color: COLORS.text, // Cor escura para melhor contraste
+        fontWeight: 'bold',
     },
     emptyCard: {
         marginBottom: 16,
@@ -400,6 +428,7 @@ const styles = StyleSheet.create({
         color: COLORS.textSecondary,
         textAlign: 'center',
         marginBottom: 16,
+        fontSize: 16,
     },
     scheduleButton: {
         marginTop: 8,
@@ -421,7 +450,7 @@ const styles = StyleSheet.create({
     appointmentDoctor: {
         fontWeight: 'bold',
         fontSize: 16,
-        color: COLORS.text,
+        color: COLORS.text, // Cor escura para melhor contraste
     },
     appointmentSpecialty: {
         color: COLORS.textSecondary,
@@ -480,6 +509,14 @@ const styles = StyleSheet.create({
     cardText: {
         flex: 1,
     },
+    cardTitle: {
+        color: COLORS.text, // Cor escura para melhor contraste
+        fontSize: 16,
+    },
+    cardDescription: {
+        color: COLORS.textSecondary,
+        fontSize: 14,
+    },
     logoutButton: {
         margin: 16,
         borderColor: COLORS.primary,
@@ -492,18 +529,26 @@ const styles = StyleSheet.create({
     },
     modalTitle: {
         marginBottom: 12,
-        color: COLORS.text,
+        color: COLORS.text, // Cor escura para melhor contraste
+        fontSize: 18,
     },
     modalText: {
         marginBottom: 8,
         fontSize: 16,
-        color: COLORS.text,
+        color: COLORS.text, // Cor escura para melhor contraste
+        lineHeight: 22,
     },
     modalSubtext: {
-        marginBottom: 20,
+        marginBottom: 8,
         fontSize: 14,
         color: COLORS.textSecondary,
         fontStyle: 'italic',
+    },
+    modalWarning: {
+        marginBottom: 20,
+        fontSize: 14,
+        color: COLORS.error,
+        fontWeight: 'bold',
     },
     modalActions: {
         flexDirection: 'row',

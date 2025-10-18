@@ -27,9 +27,10 @@ const CustomInput = ({
                 colors: {
                     primary: error ? COLORS.error : COLORS.primary,
                     background: COLORS.inputBackground,
-                    placeholder: COLORS.textSecondary,
-                    text: COLORS.text,
+                    placeholder: COLORS.textTertiary, // Cor mais escura para placeholder
+                    text: COLORS.text, // Cor escura para o texto digitado
                     error: COLORS.error,
+                    onSurface: COLORS.text, // Cor para labels
                 },
                 roundness: 8,
             }}
