@@ -149,6 +149,3 @@ Um QR code será exibido no seu terminal. Abra o aplicativo **Expo Go** no seu c
     │   └── services/
     └── App.js
 ```
-
-```
-```
