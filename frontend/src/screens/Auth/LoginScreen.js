@@ -6,10 +6,6 @@ import CustomInput from '../../components/CustomInput';
 import CustomButton from '../../components/CustomButton';
 import { COLORS } from '../../utils/constants';
 
-/**
- * Tela de Login
- * Permite que usuários façam login com email e senha
- */
 const LoginScreen = ({ navigation }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -25,7 +21,6 @@ const LoginScreen = ({ navigation }) => {
 
         try {
             await signIn(email, password);
-            // Navegação automática para MainStack acontece via AuthContext
         } catch (error) {
             alert('Erro no login. Verifique suas credenciais.');
         }

@@ -65,7 +65,6 @@ const validateAppointment = (req, res, next) => {
         });
     }
 
-    // Validate date format (YYYY-MM-DD)
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     if (!dateRegex.test(date)) {
         return res.status(400).json({
@@ -74,7 +73,6 @@ const validateAppointment = (req, res, next) => {
         });
     }
 
-    // Validate time format (HH:MM)
     const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
     if (!timeRegex.test(start_time)) {
         return res.status(400).json({
@@ -83,7 +81,6 @@ const validateAppointment = (req, res, next) => {
         });
     }
 
-    // Check if date is not in the past
     const selectedDate = new Date(date);
     const today = new Date();
     today.setHours(0, 0, 0, 0);

@@ -15,7 +15,6 @@ async function testConnection() {
 
         console.log('✅ Conexão com MySQL bem-sucedida!');
 
-        // Listar bancos de dados
         const [databases] = await connection.execute('SHOW DATABASES');
         console.log('📊 Bancos de dados disponíveis:');
         databases.forEach(db => {

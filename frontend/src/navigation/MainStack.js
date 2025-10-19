@@ -8,10 +8,6 @@ import { COLORS } from '../utils/constants';
 
 const Stack = createStackNavigator();
 
-/**
- * Stack Navigator para telas principais do aplicativo
- * Após o usuário estar autenticado
- */
 const MainStack = () => {
     return (
         <Stack.Navigator

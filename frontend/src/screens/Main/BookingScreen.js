@@ -21,12 +21,10 @@ const BookingScreen = ({ route, navigation }) => {
     const [slotsLoading, setSlotsLoading] = useState(false);
     const [notes, setNotes] = useState('');
 
-    // Buscar especialidades disponíveis
     useEffect(() => {
         fetchSpecialties();
     }, []);
 
-    // Se veio profissional da navegação, pré-selecionar
     useEffect(() => {
         if (routeProfessional) {
             console.log('🎯 Profissional recebido da navegação:', routeProfessional);
@@ -35,7 +33,6 @@ const BookingScreen = ({ route, navigation }) => {
         }
     }, [routeProfessional]);
 
-    // Buscar profissionais quando uma especialidade for selecionada
     useEffect(() => {
         if (selectedSpecialty && selectedSpecialty !== 'all') {
             fetchProfessionalsBySpecialty(selectedSpecialty);
@@ -45,7 +42,6 @@ const BookingScreen = ({ route, navigation }) => {
         }
     }, [selectedSpecialty]);
 
-    // Buscar horários disponíveis quando profissional e data mudarem
     useEffect(() => {
         if (selectedProfessional && selectedProfessional.id && date) {
             fetchAvailableSlots(selectedProfessional.id, date);
@@ -97,7 +93,6 @@ const BookingScreen = ({ route, navigation }) => {
         }
     };
 
-    // Função de fallback com dados mockados
     const getMockProfessionalsBySpecialty = (specialty) => {
         const mockProfessionals = {
             'Cardiologista': [
@@ -144,7 +139,6 @@ const BookingScreen = ({ route, navigation }) => {
         }
     };
 
-    // Gerar horários padrão como fallback
     const generateDefaultTimeSlots = () => {
         const slots = [];
         for (let hour = 8; hour <= 17; hour++) {
@@ -156,13 +150,11 @@ const BookingScreen = ({ route, navigation }) => {
         return slots;
     };
 
-    // Função para obter data mínima (hoje)
     const getMinDate = () => {
         const today = new Date();
         return today.toISOString().split('T')[0];
     };
 
-    // Função para obter data máxima (1 ano a partir de hoje)
     const getMaxDate = () => {
         const nextYear = new Date();
         nextYear.setFullYear(nextYear.getFullYear() + 1);
@@ -195,7 +187,7 @@ const BookingScreen = ({ route, navigation }) => {
 
             const appointmentData = {
                 specialty: selectedSpecialty,
-                professionalId: selectedProfessional.id, // CORREÇÃO AQUI - usar .id
+                professionalId: selectedProfessional.id,
                 date: date,
                 time: time,
                 notes: notes || undefined,
@@ -431,7 +423,7 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         flexGrow: 1,
-        paddingBottom: 120, // ESPAÇO EXTRA PARA ROLAGEM
+        paddingBottom: 120,
     },
     header: {
         backgroundColor: COLORS.surface,

@@ -9,20 +9,17 @@ exports.register = async (req, res) => {
     try {
         const { name, email, password } = req.body;
 
-        // Verificar se usuário já existe
         const existingUser = await db.User.findOne({ where: { email } });
         if (existingUser) {
             return res.status(400).json({ error: 'Email já cadastrado' });
         }
 
-        // Criar usuário
         const user = await db.User.create({
             name,
             email,
             password
         });
 
-        // Gerar token
         const token = generateToken(user.id);
 
         res.status(201).json({
@@ -44,19 +41,16 @@ exports.login = async (req, res) => {
     try {
         const { email, password } = req.body;
 
-        // Encontrar usuário
         const user = await db.User.findOne({ where: { email } });
         if (!user) {
             return res.status(401).json({ error: 'Credenciais inválidas' });
         }
 
-        // Verificar senha
         const isValidPassword = await user.validatePassword(password);
         if (!isValidPassword) {
             return res.status(401).json({ error: 'Credenciais inválidas' });
         }
 
-        // Gerar token
         const token = generateToken(user.id);
 
         res.json({

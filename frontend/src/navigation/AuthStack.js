@@ -5,10 +5,6 @@ import RegisterScreen from '../screens/Auth/RegisterScreen';
 
 const Stack = createStackNavigator();
 
-/**
- * Stack Navigator para telas de autenticação
- * Inclui Login e Registro
- */
 const AuthStack = () => {
     return (
         <Stack.Navigator

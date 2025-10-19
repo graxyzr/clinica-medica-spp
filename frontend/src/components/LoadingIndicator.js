@@ -2,9 +2,7 @@ import React from 'react';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { COLORS } from '../utils/constants';
 
-/**
- * Componente de loading centralizado
- */
+
 const LoadingIndicator = ({ size = 'large', color = COLORS.primary }) => {
     return (
         <View style={styles.container}>

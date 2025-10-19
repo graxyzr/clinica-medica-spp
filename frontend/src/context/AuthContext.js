@@ -2,30 +2,23 @@ import React, { createContext, useState, useEffect } from 'react';
 import * as authStorage from '../storage/authStorage';
 import api from '../services/api';
 
-// Criação do contexto de autenticação
 export const AuthContext = createContext();
 
-/**
- * Provider para gerenciar o estado de autenticação global
- */
 export const AuthProvider = ({ children }) => {
     const [userToken, setUserToken] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [userInfo, setUserInfo] = useState(null);
 
-    // Buscar informações do usuário com o token
     const fetchUserInfo = async (token) => {
         try {
             const response = await api.get('/auth/me');
             setUserInfo(response.data.user);
         } catch (error) {
             console.error('Erro ao buscar informações do usuário:', error);
-            // Se não conseguir buscar info do usuário, faz logout
             await signOut();
         }
     };
 
-    // Verifica se existe token ao inicializar o app
     useEffect(() => {
         const checkToken = async () => {
             try {
@@ -59,7 +52,6 @@ export const AuthProvider = ({ children }) => {
 
             const { token, user } = response.data;
 
-            // Armazena o token
             await authStorage.storeToken(token);
             setUserToken(token);
             setUserInfo(user);
@@ -83,7 +75,6 @@ export const AuthProvider = ({ children }) => {
 
             const { token, user } = response.data;
 
-            // Armazena o token
             await authStorage.storeToken(token);
             setUserToken(token);
             setUserInfo(user);
@@ -102,9 +93,6 @@ export const AuthProvider = ({ children }) => {
     const signOut = async () => {
         setIsLoading(true);
         try {
-            // Opcional: chamar API para invalidar token no backend
-            // await api.post('/auth/logout');
-
             await authStorage.removeToken();
             setUserToken(null);
             setUserInfo(null);
@@ -133,7 +121,7 @@ export const AuthProvider = ({ children }) => {
         signIn,
         signOut,
         signUp,
-        updateUserInfo, // Nova função exportada
+        updateUserInfo,
     };
 
     return (

@@ -14,20 +14,17 @@ exports.createAppointment = async (req, res) => {
             userId
         });
 
-        // VERIFICAR SE O PROFISSIONAL EXISTE
         const professional = await db.Professional.findByPk(professionalId);
         console.log('🔍 Profissional encontrado:', professional);
 
         if (!professional) {
             console.log('❌ Profissional não encontrado com ID:', professionalId);
-            // Listar todos os profissionais disponíveis para debug
             const allProfessionals = await db.Professional.findAll();
             console.log('📋 Profissionais disponíveis:', allProfessionals.map(p => ({ id: p.id, name: p.name })));
 
             return res.status(404).json({ error: `Profissional não encontrado. ID: ${professionalId}` });
         }
 
-        // Verificar se já existe agendamento no mesmo horário
         const existingAppointment = await db.Appointment.findOne({
             where: {
                 professionalId,
@@ -41,7 +38,6 @@ exports.createAppointment = async (req, res) => {
             return res.status(409).json({ error: 'Este horário já está ocupado' });
         }
 
-        // Criar o agendamento
         const appointment = await db.Appointment.create({
             userId,
             professionalId,
@@ -52,7 +48,6 @@ exports.createAppointment = async (req, res) => {
             status: 'scheduled'
         });
 
-        // Buscar dados completos para resposta
         const appointmentWithDetails = await db.Appointment.findByPk(appointment.id, {
             include: [{
                 model: db.Professional,
@@ -127,7 +122,6 @@ exports.cancelAppointment = async (req, res) => {
         const { id } = req.params;
         const userId = req.userId;
 
-        // Buscar o agendamento
         const appointment = await db.Appointment.findByPk(id, {
             include: [{
                 model: db.User,
@@ -140,23 +134,19 @@ exports.cancelAppointment = async (req, res) => {
             return res.status(404).json({ error: 'Agendamento não encontrado' });
         }
 
-        // Verificar se o agendamento pertence ao usuário
         if (appointment.userId !== userId) {
             return res.status(403).json({ error: 'Você não tem permissão para cancelar este agendamento' });
         }
 
-        // Verificar se já não está cancelado
         if (appointment.status === 'cancelled') {
             return res.status(400).json({ error: 'Este agendamento já está cancelado' });
         }
 
-        // Verificar se não é um agendamento passado
         const appointmentDateTime = new Date(`${appointment.date} ${appointment.time}`);
         if (appointmentDateTime < new Date()) {
             return res.status(400).json({ error: 'Não é possível cancelar agendamentos passados' });
         }
 
-        // Atualizar status para cancelled
         await appointment.update({
             status: 'cancelled',
             cancelledAt: new Date()

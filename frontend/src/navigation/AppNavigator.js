@@ -6,14 +6,9 @@ import AuthStack from './AuthStack';
 import MainStack from './MainStack';
 import { COLORS } from '../utils/constants';
 
-/**
- * Navigator principal que decide qual stack mostrar
- * baseado no estado de autenticação do usuário
- */
 const AppNavigator = () => {
     const { isLoading, userToken } = useContext(AuthContext);
 
-    // Mostra um loading enquanto verifica o token
     if (isLoading) {
         return (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>

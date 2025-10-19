@@ -6,10 +6,6 @@ import CustomButton from '../../components/CustomButton';
 import { COLORS } from '../../utils/constants';
 import { appointments } from '../../services/api';
 
-/**
- * Tela principal/Dashboard do aplicativo
- * Mostra agendamentos do usuário e navegação rápida
- */
 const DashboardScreen = ({ navigation }) => {
     const { userInfo, signOut } = useContext(AuthContext);
     const [appointmentsList, setAppointmentsList] = useState([]);
@@ -33,7 +29,6 @@ const DashboardScreen = ({ navigation }) => {
             const allAppointments = Array.isArray(response) ? response : [];
             setAppointmentsList(allAppointments);
 
-            // Filtrar agendamentos
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
@@ -97,7 +92,6 @@ const DashboardScreen = ({ navigation }) => {
 
         setCanceling(true);
         try {
-            // Tentativa 1: Usando a função do appointments
             console.log('📤 Enviando requisição DELETE para:', `/appointments/${selectedAppointment.id}`);
 
             const result = await appointments.cancel(selectedAppointment.id);
@@ -107,7 +101,6 @@ const DashboardScreen = ({ navigation }) => {
             setCancelModalVisible(false);
             setSelectedAppointment(null);
 
-            // Recarregar a lista
             await fetchAppointments();
 
         } catch (error) {
@@ -118,7 +111,6 @@ const DashboardScreen = ({ navigation }) => {
                 config: error.config
             });
 
-            // Tentativa 2: Usando o api diretamente (fallback)
             console.log('🔄 Tentando método alternativo...');
             try {
                 const api = await import('../../services/api');
@@ -227,7 +219,6 @@ const DashboardScreen = ({ navigation }) => {
         }
     };
 
-    // CORREÇÃO: Função handleLogout estava faltando
     const handleLogout = () => {
         signOut();
     };
@@ -476,6 +467,10 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: COLORS.background,
+    },
+    contentContainer: {
+        flexGrow: 1,
+        paddingBottom: 20,
     },
     loadingText: {
         marginTop: 16,

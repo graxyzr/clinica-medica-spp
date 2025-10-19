@@ -4,18 +4,16 @@ const mysql = require('mysql2/promise');
 
 const db = {};
 
-// Função para criar o banco se não existir
 const createDatabaseIfNotExists = async () => {
     let connection;
     try {
         console.log('🔄 Tentando conectar ao MySQL...');
 
-        // Conecta sem especificar o banco
         connection = await mysql.createConnection({
             host: config.host,
             port: config.port,
             user: config.username,
-            password: config.password || null, // Permite senha vazia
+            password: config.password || null,
             connectTimeout: 10000,
             acquireTimeout: 10000,
             timeout: 10000
@@ -23,11 +21,9 @@ const createDatabaseIfNotExists = async () => {
 
         console.log('✅ Conectado ao servidor MySQL.');
 
-        // Verifica se o banco existe
         const [rows] = await connection.execute(`SHOW DATABASES LIKE '${config.database}'`);
 
         if (rows.length === 0) {
-            // Cria o banco se não existir
             console.log(`📁 Criando banco de dados '${config.database}'...`);
             await connection.execute(`CREATE DATABASE \`${config.database}\``);
             console.log(`✅ Banco de dados '${config.database}' criado com sucesso.`);
@@ -40,7 +36,6 @@ const createDatabaseIfNotExists = async () => {
         if (connection) await connection.end();
         console.error('❌ Erro ao conectar/criar banco de dados:', error.message);
 
-        // Mensagens mais amigáveis
         if (error.code === 'ECONNREFUSED') {
             console.error('💡 Dica: Verifique se o MySQL está rodando na porta 3306');
             console.error('💡 Comando: net start mysql');
@@ -52,15 +47,12 @@ const createDatabaseIfNotExists = async () => {
     }
 };
 
-// Função principal para inicializar
 db.initializeDatabase = async () => {
     try {
-        // Primeiro cria o banco se necessário
         await createDatabaseIfNotExists();
 
         console.log('🔄 Conectando ao banco de dados...');
 
-        // Agora conecta com o banco específico
         const sequelize = new Sequelize(
             config.database,
             config.username,
@@ -86,32 +78,26 @@ db.initializeDatabase = async () => {
         db.Sequelize = Sequelize;
         db.sequelize = sequelize;
 
-        // Testar conexão
         await db.sequelize.authenticate();
         console.log('✅ Conexão com o banco de dados estabelecida.');
 
-        // Import models DEPOIS de conectar
         db.User = require('./User.js')(sequelize);
         db.Professional = require('./Professional.js')(sequelize);
         db.Appointment = require('./Appointment.js')(sequelize);
 
-        // Define associations
         Object.keys(db).forEach(modelName => {
             if (db[modelName].associate) {
                 db[modelName].associate(db);
             }
         });
 
-        // Sincronizar modelos (cria tabelas se não existirem)
         console.log('🔄 Sincronizando modelos...');
         await db.sequelize.sync({ force: false, alter: true });
         console.log('✅ Modelos sincronizados com o banco de dados.');
 
-        // Verificar se existem profissionais, se não, criar dados iniciais
         const professionalCount = await db.Professional.count();
         if (professionalCount === 0) {
             console.log('🔄 Criando dados iniciais...');
-            // No trecho onde criamos os profissionais, atualize para:
             await db.Professional.bulkCreate([
                 {
                     name: 'Dr. João Silva',

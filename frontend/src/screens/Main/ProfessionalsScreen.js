@@ -1,62 +1,86 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
-import { Title, Card, Text, Avatar, ActivityIndicator } from 'react-native-paper';
+import { Title, Card, Text, Avatar, ActivityIndicator, Button } from 'react-native-paper';
 import { COLORS } from '../../utils/constants';
-import { getProfessionals } from '../../services/api';
-import CustomButton from '../../components/CustomButton';
+import { professionals } from '../../services/api';
 
 const ProfessionalsScreen = ({ navigation }) => {
-    const [professionals, setProfessionals] = useState([]);
+    const [professionalsList, setProfessionalsList] = useState([]);
     const [filteredProfessionals, setFilteredProfessionals] = useState([]);
+    const [specialties, setSpecialties] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [selectedSpecialty, setSelectedSpecialty] = useState('all');
-    const [specialties, setSpecialties] = useState([]);
+    const [error, setError] = useState(null);
 
     const fetchProfessionals = async () => {
-        try {
-            const [professionalsData, specialtiesData] = await Promise.all([
-                getProfessionals.all(),
-                getProfessionals.specialties()
-            ]);
+        setError(null);
 
-            setProfessionals(professionalsData);
+        if (!professionals || typeof professionals.all !== 'function') {
+            const errorMsg = 'Serviço de profissionais não disponível. Verifique a importação.';
+            console.error('❌', errorMsg);
+            setError(errorMsg);
+            setLoading(false);
+            setRefreshing(false);
+            return;
+        }
+
+        try {
+            setLoading(true);
+
+            console.log('🔄 Iniciando carregamento de profissionais...');
+
+            let professionalsData = [];
+            let specialtiesData = [];
+
+            try {
+                professionalsData = await professionals.all();
+                console.log('✅ Profissionais carregados:', professionalsData.length);
+            } catch (profError) {
+                console.error('❌ Erro específico ao buscar profissionais:', profError);
+                throw new Error(`Falha ao carregar lista de profissionais: ${profError.message}`);
+            }
+
+            try {
+                specialtiesData = await professionals.specialties();
+                console.log('✅ Especialidades carregadas:', specialtiesData.length);
+            } catch (specError) {
+                console.error('⚠️ Erro ao buscar especialidades (continuando...):', specError);
+                specialtiesData = [];
+            }
+
+            setProfessionalsList(professionalsData);
             setFilteredProfessionals(professionalsData);
             setSpecialties(['all', ...specialtiesData]);
+
+            console.log('✅ Dados carregados com sucesso!');
+
         } catch (error) {
-            console.error('Erro ao buscar profissionais:', error);
-            alert('Erro ao carregar profissionais');
+            console.error('❌ Erro geral ao buscar profissionais:', error);
+            setError(error.message);
         } finally {
             setLoading(false);
             setRefreshing(false);
         }
     };
 
-    useEffect(() => {
-        fetchProfessionals();
-    }, []);
-
-    useEffect(() => {
-        if (selectedSpecialty === 'all') {
-            setFilteredProfessionals(professionals);
-        } else {
-            const filtered = professionals.filter(prof =>
-                prof.specialty === selectedSpecialty
-            );
-            setFilteredProfessionals(filtered);
-        }
-    }, [selectedSpecialty, professionals]);
-
     const onRefresh = () => {
         setRefreshing(true);
         fetchProfessionals();
     };
 
-    const handleProfessionalSelect = (professional) => {
-        // Navegar para BookingScreen passando o profissional como parâmetro
-        navigation.navigate('Booking', {
-            professional: professional
-        });
+    useEffect(() => {
+        fetchProfessionals();
+    }, []);
+
+    const filterBySpecialty = (specialty) => {
+        if (specialty === 'all') {
+            setFilteredProfessionals(professionalsList);
+        } else {
+            const filtered = professionalsList.filter(prof =>
+                prof.specialty === specialty
+            );
+            setFilteredProfessionals(filtered);
+        }
     };
 
     if (loading) {
@@ -68,84 +92,95 @@ const ProfessionalsScreen = ({ navigation }) => {
         );
     }
 
-    return (
-        <ScrollView
-            style={styles.container}
-            refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-            }
-        >
-            <View style={styles.header}>
-                <Title>Profissionais</Title>
-                <Text style={styles.subtitle}>Encontre o especialista ideal</Text>
+    if (error) {
+        return (
+            <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>Erro ao carregar profissionais</Text>
+                <Text style={styles.errorDetail}>{error}</Text>
+                <Button
+                    mode="contained"
+                    onPress={fetchProfessionals}
+                    style={styles.retryButton}
+                >
+                    Tentar Novamente
+                </Button>
             </View>
+        );
+    }
 
-            {/* Filtro por Especialidade */}
-            <Card style={styles.filterCard}>
-                <Card.Content>
-                    <Text style={styles.filterLabel}>Filtrar por especialidade:</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.specialtiesScroll}>
-                        <View style={styles.specialtiesContainer}>
-                            {specialties.map((specialty, index) => (
-                                <CustomButton
-                                    key={index}
-                                    mode={selectedSpecialty === specialty ? 'contained' : 'outlined'}
-                                    onPress={() => setSelectedSpecialty(specialty)}
-                                    style={styles.specialtyButton}
-                                    compact
+    return (
+        <View style={styles.container}>
+            <ScrollView
+                style={styles.scrollView}
+                contentContainerStyle={styles.contentContainer}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        colors={[COLORS.primary]}
+                    />
+                }
+                showsVerticalScrollIndicator={true}
+            >
+                {/* Filtros de Especialidade */}
+                <View style={styles.filterContainer}>
+                    <Text style={styles.filterTitle}>Filtrar por especialidade:</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                        <View style={styles.filterButtons}>
+                            {specialties.map(specialty => (
+                                <Button
+                                    key={specialty}
+                                    mode="outlined"
+                                    onPress={() => filterBySpecialty(specialty)}
+                                    style={styles.filterButton}
+                                    contentStyle={styles.filterButtonContent}
                                 >
-                                    {specialty === 'all' ? 'Todas' : specialty}
-                                </CustomButton>
+                                    {specialty === 'all' ? 'Todos' : specialty}
+                                </Button>
                             ))}
                         </View>
                     </ScrollView>
-                </Card.Content>
-            </Card>
+                </View>
 
-            {/* Lista de Profissionais */}
-            <View style={styles.professionalsContainer}>
-                {filteredProfessionals.length === 0 ? (
-                    <Card style={styles.emptyCard}>
-                        <Card.Content>
-                            <Text style={styles.emptyText}>
-                                Nenhum profissional encontrado {selectedSpecialty !== 'all' ? `para ${selectedSpecialty}` : ''}
-                            </Text>
-                        </Card.Content>
-                    </Card>
-                ) : (
-                    filteredProfessionals.map((professional) => (
-                        <Card key={professional.id} style={styles.professionalCard}>
-                            <Card.Content>
-                                <View style={styles.professionalHeader}>
-                                    <Avatar.Icon size={60} icon="doctor" style={styles.avatar} />
+                {/* Lista de profissionais */}
+                <View style={styles.professionalsList}>
+                    {filteredProfessionals.length > 0 ? (
+                        filteredProfessionals.map(professional => (
+                            <Card key={professional.id} style={styles.professionalCard}>
+                                <Card.Content>
                                     <View style={styles.professionalInfo}>
-                                        <Title style={styles.professionalName}>{professional.name}</Title>
-                                        <Text style={styles.professionalSpecialty}>{professional.specialty}</Text>
-                                        <Text style={styles.professionalRating}>
-                                            ⭐ {professional.rating} ({professional.reviewCount} avaliações)
-                                        </Text>
-                                        {professional.description && (
-                                            <Text style={styles.professionalDescription}>
-                                                {professional.description}
+                                        <Avatar.Image
+                                            size={60}
+                                            source={{
+                                                uri: professional.image_url || 'https://via.placeholder.com/60'
+                                            }}
+                                            style={styles.avatar}
+                                        />
+                                        <View style={styles.professionalDetails}>
+                                            <Title style={styles.professionalName}>
+                                                {professional.name}
+                                            </Title>
+                                            <Text style={styles.professionalSpecialty}>
+                                                {professional.specialty}
                                             </Text>
-                                        )}
+                                            <Text style={styles.professionalRating}>
+                                                ⭐ {professional.rating || '5.0'}
+                                            </Text>
+                                        </View>
                                     </View>
-                                </View>
-
-                                <CustomButton
-                                    mode="contained"
-                                    onPress={() => handleProfessionalSelect(professional)}
-                                    style={styles.bookButton}
-                                    icon="calendar-plus"
-                                >
-                                    Agendar Consulta
-                                </CustomButton>
-                            </Card.Content>
-                        </Card>
-                    ))
-                )}
-            </View>
-        </ScrollView>
+                                </Card.Content>
+                            </Card>
+                        ))
+                    ) : (
+                        <View style={styles.emptyContainer}>
+                            <Text style={styles.emptyText}>
+                                Nenhum profissional encontrado
+                            </Text>
+                        </View>
+                    )}
+                </View>
+            </ScrollView>
+        </View>
     );
 };
 
@@ -154,95 +189,108 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: COLORS.background,
     },
+    scrollView: {
+        flex: 1,
+    },
+    contentContainer: {
+        flexGrow: 1,
+        paddingBottom: 20,
+    },
     loadingContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+        backgroundColor: COLORS.background,
     },
     loadingText: {
-        marginTop: 16,
-        color: COLORS.textSecondary,
+        marginTop: 10,
+        color: COLORS.text,
     },
-    header: {
-        padding: 20,
-        backgroundColor: COLORS.surface,
+    errorContainer: {
+        flex: 1,
+        justifyContent: 'center',
         alignItems: 'center',
+        padding: 20,
+        backgroundColor: COLORS.background,
     },
-    subtitle: {
+    errorText: {
+        fontSize: 18,
+        color: COLORS.error,
+        textAlign: 'center',
+        marginBottom: 10,
+    },
+    errorDetail: {
+        fontSize: 14,
         color: COLORS.textSecondary,
-        marginTop: 8,
+        textAlign: 'center',
+        marginBottom: 20,
     },
-    filterCard: {
-        margin: 16,
-        backgroundColor: COLORS.surface,
+    retryButton: {
+        marginTop: 10,
     },
-    filterLabel: {
+    filterContainer: {
+        padding: 16,
+        backgroundColor: COLORS.white,
+        marginBottom: 8,
+    },
+    filterTitle: {
         fontSize: 16,
         fontWeight: 'bold',
         marginBottom: 12,
         color: COLORS.text,
     },
-    specialtiesScroll: {
-        maxHeight: 60,
-    },
-    specialtiesContainer: {
+    filterButtons: {
         flexDirection: 'row',
         gap: 8,
     },
-    specialtyButton: {
-        margin: 2,
+    filterButton: {
+        marginRight: 8,
+        borderRadius: 20,
     },
-    professionalsContainer: {
-        padding: 16,
+    filterButtonContent: {
+        height: 36,
     },
-    emptyCard: {
-        alignItems: 'center',
-        padding: 20,
-        backgroundColor: COLORS.surface,
-    },
-    emptyText: {
-        color: COLORS.textSecondary,
-        textAlign: 'center',
+    professionalsList: {
+        paddingHorizontal: 16,
+        paddingBottom: 16,
     },
     professionalCard: {
-        marginBottom: 16,
-        backgroundColor: COLORS.surface,
+        marginBottom: 12,
         elevation: 2,
     },
-    professionalHeader: {
+    professionalInfo: {
         flexDirection: 'row',
-        alignItems: 'flex-start',
-        marginBottom: 16,
+        alignItems: 'center',
     },
     avatar: {
-        backgroundColor: COLORS.primary,
-        marginRight: 16,
+        backgroundColor: COLORS.primaryLight,
     },
-    professionalInfo: {
+    professionalDetails: {
+        marginLeft: 12,
         flex: 1,
     },
     professionalName: {
-        fontSize: 18,
+        fontSize: 16,
+        fontWeight: 'bold',
         marginBottom: 4,
     },
     professionalSpecialty: {
-        fontSize: 16,
-        color: COLORS.primary,
-        fontWeight: 'bold',
+        fontSize: 14,
+        color: COLORS.textSecondary,
         marginBottom: 4,
     },
     professionalRating: {
         fontSize: 14,
-        color: COLORS.textSecondary,
-        marginBottom: 8,
+        color: COLORS.primary,
     },
-    professionalDescription: {
-        fontSize: 14,
-        color: COLORS.textSecondary,
-        fontStyle: 'italic',
+    emptyContainer: {
+        padding: 40,
+        alignItems: 'center',
     },
-    bookButton: {
-        marginTop: 8,
+    emptyText: {
+        color: COLORS.textSecondary,
+        fontSize: 16,
+        textAlign: 'center',
     },
 });
 

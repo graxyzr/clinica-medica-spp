@@ -6,10 +6,6 @@ import CustomInput from '../../components/CustomInput';
 import CustomButton from '../../components/CustomButton';
 import { COLORS } from '../../utils/constants';
 
-/**
- * Tela de Registro
- * Permite que novos usuários criem uma conta
- */
 const RegisterScreen = ({ navigation }) => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
@@ -37,7 +33,6 @@ const RegisterScreen = ({ navigation }) => {
 
         try {
             await signUp({ name, email, password });
-            // Navegação automática para MainStack acontece via AuthContext
         } catch (error) {
             alert('Erro no cadastro. Tente novamente.');
         }

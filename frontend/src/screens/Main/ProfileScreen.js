@@ -19,7 +19,6 @@ const ProfileScreen = () => {
 
     const handleEditToggle = () => {
         if (isEditing) {
-            // Cancelar edição - reverter para dados originais
             setFormData({
                 name: userInfo?.name || '',
                 email: userInfo?.email || '',

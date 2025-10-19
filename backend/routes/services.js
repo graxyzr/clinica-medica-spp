@@ -2,7 +2,6 @@ const express = require('express');
 const db = require('../config/database');
 const router = express.Router();
 
-// GET /api/services - Get all services
 router.get('/', async (req, res) => {
     try {
         const [services] = await db.execute(
@@ -27,7 +26,6 @@ router.get('/', async (req, res) => {
     }
 });
 
-// GET /api/services/:id - Get specific service
 router.get('/:id', async (req, res) => {
     try {
         const { id } = req.params;

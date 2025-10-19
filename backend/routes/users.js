@@ -5,7 +5,6 @@ const authMiddleware = require('../middleware/auth');
 const { validateEmail } = require('../middleware/validation');
 const router = express.Router();
 
-// GET /api/users/me - Get current user profile
 router.get('/me', authMiddleware, async (req, res) => {
     try {
         const [users] = await db.execute(
@@ -36,14 +35,12 @@ router.get('/me', authMiddleware, async (req, res) => {
     }
 });
 
-// PUT /api/users/me - Update current user profile
 router.put('/me', authMiddleware, async (req, res) => {
     try {
         const { name, email, phone, currentPassword, newPassword } = req.body;
         const updates = [];
         const params = [];
 
-        // Validate email if provided
         if (email && !validateEmail(email)) {
             return res.status(400).json({
                 status: 'error',
@@ -51,7 +48,6 @@ router.put('/me', authMiddleware, async (req, res) => {
             });
         }
 
-        // Build dynamic update query
         if (name) {
             updates.push('name = ?');
             params.push(name.trim());
@@ -67,7 +63,6 @@ router.put('/me', authMiddleware, async (req, res) => {
             params.push(phone);
         }
 
-        // Handle password change
         if (newPassword) {
             if (!currentPassword) {
                 return res.status(400).json({
@@ -76,7 +71,6 @@ router.put('/me', authMiddleware, async (req, res) => {
                 });
             }
 
-            // Verify current password
             const [users] = await db.execute(
                 'SELECT password_hash FROM users WHERE id = ?',
                 [req.user.id]
@@ -94,7 +88,6 @@ router.put('/me', authMiddleware, async (req, res) => {
                 });
             }
 
-            // Hash new password
             const saltRounds = 10;
             const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
 
@@ -123,7 +116,6 @@ router.put('/me', authMiddleware, async (req, res) => {
             });
         }
 
-        // Get updated user
         const [updatedUsers] = await db.execute(
             'SELECT id, name, email, phone, created_at, updated_at FROM users WHERE id = ?',
             [req.user.id]

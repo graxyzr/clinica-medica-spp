@@ -3,11 +3,9 @@ const path = require('path');
 
 console.log('🔍 Verificando dependências...');
 
-// Verificar se node_modules existe
 const nodeModulesExists = fs.existsSync(path.join(__dirname, 'node_modules'));
 console.log('📁 node_modules:', nodeModulesExists ? '✅ Existe' : '❌ Não existe');
 
-// Verificar se mysql2 está instalado
 try {
     require.resolve('mysql2/promise');
     console.log('📦 mysql2/promise: ✅ Instalado');
@@ -17,7 +15,6 @@ try {
     process.exit(1);
 }
 
-// Verificar outras dependências
 const dependencies = ['express', 'jsonwebtoken', 'bcryptjs', 'cors', 'dotenv'];
 dependencies.forEach(dep => {
     try {

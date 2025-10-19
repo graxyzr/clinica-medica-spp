@@ -2,9 +2,7 @@ import React from 'react';
 import { TextInput } from 'react-native-paper';
 import { COLORS } from '../utils/constants';
 
-/**
- * Componente de input customizado com estilo consistente
- */
+
 const CustomInput = ({
     label,
     mode = 'outlined',
@@ -27,10 +25,10 @@ const CustomInput = ({
                 colors: {
                     primary: error ? COLORS.error : COLORS.primary,
                     background: COLORS.inputBackground,
-                    placeholder: COLORS.textTertiary, // Cor mais escura para placeholder
-                    text: COLORS.text, // Cor escura para o texto digitado
+                    placeholder: COLORS.textTertiary,
+                    text: COLORS.text,
                     error: COLORS.error,
-                    onSurface: COLORS.text, // Cor para labels
+                    onSurface: COLORS.text,
                 },
                 roundness: 8,
             }}

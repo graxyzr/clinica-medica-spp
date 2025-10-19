@@ -2,9 +2,7 @@ import React from 'react';
 import { Button } from 'react-native-paper';
 import { COLORS } from '../utils/constants';
 
-/**
- * Componente de botão customizado com estilo consistente
- */
+
 const CustomButton = ({
     mode = 'contained',
     children,
