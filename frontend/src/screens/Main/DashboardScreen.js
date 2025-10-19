@@ -17,7 +17,7 @@ const DashboardScreen = ({ navigation }) => {
     const [pastAppointments, setPastAppointments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [filter, setFilter] = useState('upcoming'); // 'upcoming', 'past', 'all'
+    const [filter, setFilter] = useState('upcoming');
     const [cancelModalVisible, setCancelModalVisible] = useState(false);
     const [selectedAppointment, setSelectedAppointment] = useState(null);
     const [canceling, setCanceling] = useState(false);
@@ -25,34 +25,52 @@ const DashboardScreen = ({ navigation }) => {
     const fetchAppointments = async () => {
         try {
             setLoading(true);
-            // Buscar todos os agendamentos do usuário
-            const response = await appointments.myAppointments();
-            const allAppointments = response;
+            console.log('🔄 Buscando agendamentos...');
 
+            const response = await appointments.myAppointments();
+            console.log('✅ Agendamentos recebidos:', response);
+
+            const allAppointments = Array.isArray(response) ? response : [];
             setAppointmentsList(allAppointments);
 
             // Filtrar agendamentos
             const today = new Date();
-            today.setHours(0, 0, 0, 0); // Resetar horas para comparar apenas a data
+            today.setHours(0, 0, 0, 0);
 
             const upcoming = allAppointments.filter(apt => {
+                if (!apt.date || !apt.time) return false;
+
                 const appointmentDate = new Date(apt.date);
                 appointmentDate.setHours(0, 0, 0, 0);
-                return appointmentDate >= today && apt.status === 'scheduled';
+                const isUpcoming = appointmentDate >= today && apt.status === 'scheduled';
+
+                console.log(`Agendamento ${apt.id}: ${apt.date} ${apt.time}, status: ${apt.status}, upcoming: ${isUpcoming}`);
+                return isUpcoming;
             });
 
             const past = allAppointments.filter(apt => {
+                if (!apt.date || !apt.time) return false;
+
                 const appointmentDate = new Date(apt.date);
                 appointmentDate.setHours(0, 0, 0, 0);
-                return appointmentDate < today || apt.status !== 'scheduled';
+                const isPast = appointmentDate < today || apt.status !== 'scheduled';
+
+                return isPast;
             });
 
             setUpcomingAppointments(upcoming);
             setPastAppointments(past);
 
+            console.log(`📊 Resumo: ${upcoming.length} próximos, ${past.length} passados`);
+
         } catch (error) {
-            console.error('Erro ao buscar agendamentos:', error);
-            alert('Erro ao carregar agendamentos');
+            console.error('❌ Erro ao buscar agendamentos:', error);
+            console.log('Detalhes do erro:', {
+                message: error.message,
+                response: error.response?.data,
+                status: error.response?.status
+            });
+            alert('Erro ao carregar agendamentos: ' + (error.response?.data?.error || error.message));
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -69,25 +87,73 @@ const DashboardScreen = ({ navigation }) => {
     };
 
     const handleCancelAppointment = async () => {
-        if (!selectedAppointment) return;
+        if (!selectedAppointment) {
+            console.log('❌ Nenhum agendamento selecionado para cancelar');
+            return;
+        }
+
+        console.log('🔄 Iniciando cancelamento do agendamento:', selectedAppointment.id);
+        console.log('Dados do agendamento:', selectedAppointment);
 
         setCanceling(true);
         try {
-            await appointments.cancel(selectedAppointment.id);
+            // Tentativa 1: Usando a função do appointments
+            console.log('📤 Enviando requisição DELETE para:', `/appointments/${selectedAppointment.id}`);
+
+            const result = await appointments.cancel(selectedAppointment.id);
+            console.log('✅ Resposta do cancelamento:', result);
+
             alert('Agendamento cancelado com sucesso!');
             setCancelModalVisible(false);
             setSelectedAppointment(null);
-            fetchAppointments(); // Recarregar lista
+
+            // Recarregar a lista
+            await fetchAppointments();
+
         } catch (error) {
-            console.error('Erro ao cancelar agendamento:', error);
-            console.log('Detalhes do erro:', error.response?.data || error.message);
-            alert('Erro ao cancelar agendamento. Tente novamente.');
+            console.error('❌ Erro detalhado ao cancelar agendamento:', {
+                message: error.message,
+                response: error.response?.data,
+                status: error.response?.status,
+                config: error.config
+            });
+
+            // Tentativa 2: Usando o api diretamente (fallback)
+            console.log('🔄 Tentando método alternativo...');
+            try {
+                const api = await import('../../services/api');
+                const response = await api.default.delete(`/appointments/${selectedAppointment.id}`);
+                console.log('✅ Cancelamento bem-sucedido (método alternativo):', response.data);
+
+                alert('Agendamento cancelado com sucesso!');
+                setCancelModalVisible(false);
+                setSelectedAppointment(null);
+                await fetchAppointments();
+
+            } catch (fallbackError) {
+                console.error('❌ Erro no método alternativo:', fallbackError);
+
+                let errorMessage = 'Erro ao cancelar agendamento. ';
+
+                if (fallbackError.response?.status === 404) {
+                    errorMessage += 'Agendamento não encontrado.';
+                } else if (fallbackError.response?.status === 400) {
+                    errorMessage += 'Não é possível cancelar este agendamento.';
+                } else if (fallbackError.response?.data?.error) {
+                    errorMessage += fallbackError.response.data.error;
+                } else {
+                    errorMessage += 'Tente novamente.';
+                }
+
+                alert(errorMessage);
+            }
         } finally {
             setCanceling(false);
         }
     };
 
     const openCancelModal = (appointment) => {
+        console.log('📝 Abrindo modal de cancelamento para:', appointment);
         setSelectedAppointment(appointment);
         setCancelModalVisible(true);
     };
@@ -106,19 +172,24 @@ const DashboardScreen = ({ navigation }) => {
     };
 
     const formatAppointmentDate = (dateString, timeString) => {
-        const date = new Date(dateString);
-        const formattedDate = date.toLocaleDateString('pt-BR');
-        return `${formattedDate} às ${timeString}`;
+        try {
+            const date = new Date(dateString);
+            const formattedDate = date.toLocaleDateString('pt-BR');
+            return `${formattedDate} às ${timeString}`;
+        } catch (error) {
+            console.error('Erro ao formatar data:', error);
+            return `${dateString} às ${timeString}`;
+        }
     };
 
     const getStatusColor = (status) => {
         switch (status) {
             case 'scheduled':
-                return COLORS.success; // Verde
+                return COLORS.success;
             case 'completed':
-                return COLORS.info; // Azul
+                return COLORS.info;
             case 'cancelled':
-                return COLORS.error; // Vermelho
+                return COLORS.error;
             default:
                 return COLORS.textTertiary;
         }
@@ -137,6 +208,26 @@ const DashboardScreen = ({ navigation }) => {
         }
     };
 
+    const canCancelAppointment = (appointment) => {
+        if (appointment.status !== 'scheduled') {
+            console.log(`❌ Agendamento ${appointment.id} não pode ser cancelado: status não é 'scheduled'`);
+            return false;
+        }
+
+        try {
+            const appointmentDateTime = new Date(`${appointment.date}T${appointment.time}`);
+            const now = new Date();
+            const canCancel = appointmentDateTime > now;
+
+            console.log(`📅 Agendamento ${appointment.id}: ${appointmentDateTime} > ${now} = ${canCancel}`);
+            return canCancel;
+        } catch (error) {
+            console.error('Erro ao verificar se pode cancelar:', error);
+            return false;
+        }
+    };
+
+    // CORREÇÃO: Função handleLogout estava faltando
     const handleLogout = () => {
         signOut();
     };
@@ -257,8 +348,8 @@ const DashboardScreen = ({ navigation }) => {
                                         </Text>
                                     )}
 
-                                    {/* Ações - Mostrar apenas para agendamentos futuros e com status scheduled */}
-                                    {appointment.status === 'scheduled' && (
+                                    {/* Ações - Mostrar apenas para agendamentos que podem ser cancelados */}
+                                    {canCancelAppointment(appointment) && (
                                         <View style={styles.actionsContainer}>
                                             <Button
                                                 mode="outlined"
@@ -307,6 +398,22 @@ const DashboardScreen = ({ navigation }) => {
                     icon="logout"
                 >
                     Sair
+                </CustomButton>
+
+                {/* Botão de Debug (remover em produção) */}
+                <CustomButton
+                    mode="outlined"
+                    onPress={() => {
+                        console.log('=== DEBUG INFO ===');
+                        console.log('Appointments List:', appointmentsList);
+                        console.log('Upcoming:', upcomingAppointments);
+                        console.log('Past:', pastAppointments);
+                        console.log('User Info:', userInfo);
+                    }}
+                    style={styles.debugButton}
+                    icon="bug"
+                >
+                    Debug Info
                 </CustomButton>
             </ScrollView>
 
@@ -389,7 +496,7 @@ const styles = StyleSheet.create({
         fontSize: 20,
         marginBottom: 8,
         textAlign: 'center',
-        color: COLORS.text, // Cor escura para melhor contraste
+        color: COLORS.text,
     },
     subtitle: {
         color: COLORS.textSecondary,
@@ -413,7 +520,7 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 18,
         marginBottom: 16,
-        color: COLORS.text, // Cor escura para melhor contraste
+        color: COLORS.text,
         fontWeight: 'bold',
     },
     emptyCard: {
@@ -450,7 +557,7 @@ const styles = StyleSheet.create({
     appointmentDoctor: {
         fontWeight: 'bold',
         fontSize: 16,
-        color: COLORS.text, // Cor escura para melhor contraste
+        color: COLORS.text,
     },
     appointmentSpecialty: {
         color: COLORS.textSecondary,
@@ -510,7 +617,7 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     cardTitle: {
-        color: COLORS.text, // Cor escura para melhor contraste
+        color: COLORS.text,
         fontSize: 16,
     },
     cardDescription: {
@@ -521,6 +628,11 @@ const styles = StyleSheet.create({
         margin: 16,
         borderColor: COLORS.primary,
     },
+    debugButton: {
+        margin: 16,
+        marginTop: 8,
+        borderColor: COLORS.warning,
+    },
     modalContainer: {
         backgroundColor: 'white',
         padding: 20,
@@ -529,13 +641,13 @@ const styles = StyleSheet.create({
     },
     modalTitle: {
         marginBottom: 12,
-        color: COLORS.text, // Cor escura para melhor contraste
+        color: COLORS.text,
         fontSize: 18,
     },
     modalText: {
         marginBottom: 8,
         fontSize: 16,
-        color: COLORS.text, // Cor escura para melhor contraste
+        color: COLORS.text,
         lineHeight: 22,
     },
     modalSubtext: {

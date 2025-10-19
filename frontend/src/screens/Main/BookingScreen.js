@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Platform } from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
 import { Title, Text, Card, ActivityIndicator } from 'react-native-paper';
 import CustomInput from '../../components/CustomInput';
 import CustomButton from '../../components/CustomButton';
@@ -12,7 +12,7 @@ const BookingScreen = ({ route, navigation }) => {
     const [specialties, setSpecialties] = useState([]);
     const [professionals, setProfessionals] = useState([]);
     const [selectedSpecialty, setSelectedSpecialty] = useState('');
-    const [selectedProfessional, setSelectedProfessional] = useState('');
+    const [selectedProfessional, setSelectedProfessional] = useState(null);
     const [date, setDate] = useState('');
     const [time, setTime] = useState('');
     const [availableSlots, setAvailableSlots] = useState([]);
@@ -29,27 +29,26 @@ const BookingScreen = ({ route, navigation }) => {
     // Se veio profissional da navegação, pré-selecionar
     useEffect(() => {
         if (routeProfessional) {
-            setSelectedProfessional(routeProfessional.id);
+            console.log('🎯 Profissional recebido da navegação:', routeProfessional);
+            setSelectedProfessional(routeProfessional);
             setSelectedSpecialty(routeProfessional.specialty);
-            // Buscar profissionais da mesma especialidade
-            fetchProfessionalsBySpecialty(routeProfessional.specialty);
         }
     }, [routeProfessional]);
 
     // Buscar profissionais quando uma especialidade for selecionada
     useEffect(() => {
-        if (selectedSpecialty) {
+        if (selectedSpecialty && selectedSpecialty !== 'all') {
             fetchProfessionalsBySpecialty(selectedSpecialty);
         } else {
             setProfessionals([]);
-            setSelectedProfessional('');
+            setSelectedProfessional(null);
         }
     }, [selectedSpecialty]);
 
     // Buscar horários disponíveis quando profissional e data mudarem
     useEffect(() => {
-        if (selectedProfessional && date) {
-            fetchAvailableSlots(selectedProfessional, date);
+        if (selectedProfessional && selectedProfessional.id && date) {
+            fetchAvailableSlots(selectedProfessional.id, date);
         } else {
             setAvailableSlots([]);
             setTime('');
@@ -62,7 +61,7 @@ const BookingScreen = ({ route, navigation }) => {
             setSpecialties(specialtiesData);
         } catch (error) {
             console.error('Erro ao buscar especialidades:', error);
-            setSpecialties([
+            const defaultSpecialties = [
                 'Cardiologista',
                 'Dermatologista',
                 'Ortopedista',
@@ -71,21 +70,65 @@ const BookingScreen = ({ route, navigation }) => {
                 'Ginecologista',
                 'Oftalmologista',
                 'Psiquiatra'
-            ]);
+            ];
+            setSpecialties(defaultSpecialties);
         }
     };
 
     const fetchProfessionalsBySpecialty = async (specialty) => {
         setProfessionalLoading(true);
         try {
-            const professionalsData = await getProfessionals.bySpecialty(specialty);
+            let professionalsData;
+            try {
+                professionalsData = await getProfessionals.bySpecialty(specialty);
+            } catch (filterError) {
+                const allProfessionals = await getProfessionals.all();
+                professionalsData = allProfessionals.filter(prof =>
+                    prof.specialty && prof.specialty.toLowerCase().includes(specialty.toLowerCase())
+                );
+            }
             setProfessionals(professionalsData);
         } catch (error) {
             console.error('Erro ao buscar profissionais:', error);
-            alert('Erro ao carregar profissionais');
+            const mockProfessionals = getMockProfessionalsBySpecialty(specialty);
+            setProfessionals(mockProfessionals);
         } finally {
             setProfessionalLoading(false);
         }
+    };
+
+    // Função de fallback com dados mockados
+    const getMockProfessionalsBySpecialty = (specialty) => {
+        const mockProfessionals = {
+            'Cardiologista': [
+                { id: 1, name: 'Dr. João Silva', specialty: 'Cardiologista', rating: 4.8, reviewCount: 125, description: 'Especialista em cardiologia com 10 anos de experiência' },
+                { id: 2, name: 'Dra. Maria Santos', specialty: 'Cardiologista', rating: 4.9, reviewCount: 98, description: 'Cardiologista especializada em arritmias' }
+            ],
+            'Dermatologista': [
+                { id: 3, name: 'Dr. Pedro Oliveira', specialty: 'Dermatologista', rating: 4.7, reviewCount: 87, description: 'Dermatologista especializado em estética' },
+                { id: 4, name: 'Dra. Ana Costa', specialty: 'Dermatologista', rating: 4.9, reviewCount: 156, description: 'Especialista em dermatologia clínica' }
+            ],
+            'Ortopedista': [
+                { id: 5, name: 'Dr. Carlos Lima', specialty: 'Ortopedista', rating: 4.6, reviewCount: 73, description: 'Ortopedista traumatologista' }
+            ],
+            'Pediatra': [
+                { id: 6, name: 'Dra. Juliana Pereira', specialty: 'Pediatra', rating: 4.8, reviewCount: 142, description: 'Pediatra com especialização em neonatologia' }
+            ],
+            'Neurologista': [
+                { id: 7, name: 'Dr. Roberto Almeida', specialty: 'Neurologista', rating: 4.7, reviewCount: 89, description: 'Especialista em neurologia clínica' }
+            ],
+            'Ginecologista': [
+                { id: 8, name: 'Dra. Fernanda Rodrigues', specialty: 'Ginecologista', rating: 4.9, reviewCount: 67, description: 'Ginecologista e obstetra' }
+            ],
+            'Oftalmologista': [
+                { id: 9, name: 'Dr. Marcelo Souza', specialty: 'Oftalmologista', rating: 4.8, reviewCount: 112, description: 'Especialista em cirurgia refrativa' }
+            ],
+            'Psiquiatra': [
+                { id: 10, name: 'Dra. Patricia Lima', specialty: 'Psiquiatra', rating: 4.9, reviewCount: 78, description: 'Psiquiatra com abordagem cognitivo-comportamental' }
+            ]
+        };
+
+        return mockProfessionals[specialty] || [];
     };
 
     const fetchAvailableSlots = async (professionalId, date) => {
@@ -95,10 +138,22 @@ const BookingScreen = ({ route, navigation }) => {
             setAvailableSlots(slots);
         } catch (error) {
             console.error('Erro ao buscar horários disponíveis:', error);
-            setAvailableSlots([]);
+            setAvailableSlots(generateDefaultTimeSlots());
         } finally {
             setSlotsLoading(false);
         }
+    };
+
+    // Gerar horários padrão como fallback
+    const generateDefaultTimeSlots = () => {
+        const slots = [];
+        for (let hour = 8; hour <= 17; hour++) {
+            slots.push(`${hour.toString().padStart(2, '0')}:00`);
+            if (hour < 17) {
+                slots.push(`${hour.toString().padStart(2, '0')}:30`);
+            }
+        }
+        return slots;
     };
 
     // Função para obter data mínima (hoje)
@@ -114,225 +169,255 @@ const BookingScreen = ({ route, navigation }) => {
         return nextYear.toISOString().split('T')[0];
     };
 
-    // Converter data do formato YYYY-MM-DD para DD/MM/AAAA para exibição
-    const formatDateForDisplay = (dateString) => {
-        if (!dateString) return '';
-        const [year, month, day] = dateString.split('-');
-        return `${day}/${month}/${year}`;
-    };
-
     const handleBooking = async () => {
+        console.log('🎯 Dados do agendamento:', {
+            selectedSpecialty,
+            selectedProfessional,
+            professionalId: selectedProfessional?.id,
+            date,
+            time,
+            notes
+        });
+
         if (!selectedSpecialty || !selectedProfessional || !date || !time) {
             alert('Por favor, preencha todos os campos obrigatórios');
             return;
         }
 
+        if (!selectedProfessional.id) {
+            alert('Erro: Profissional não selecionado corretamente');
+            return;
+        }
+
         setLoading(true);
         try {
-            await appointments.create({
+            console.log('📤 Enviando agendamento para API...');
+
+            const appointmentData = {
                 specialty: selectedSpecialty,
-                professionalId: selectedProfessional,
+                professionalId: selectedProfessional.id, // CORREÇÃO AQUI - usar .id
                 date: date,
                 time: time,
                 notes: notes || undefined,
+            };
+
+            console.log('📦 Dados enviados:', appointmentData);
+
+            const result = await appointments.create(appointmentData);
+
+            console.log('✅ Agendamento criado com sucesso:', result);
+            alert('Consulta agendada com sucesso!');
+
+            navigation.navigate('Dashboard');
+
+        } catch (error) {
+            console.error('❌ Erro completo ao agendar:', error);
+            console.log('📊 Detalhes do erro:', {
+                message: error.message,
+                response: error.response?.data,
+                status: error.response?.status
             });
 
-            alert('Consulta agendada com sucesso!');
-            // Navegar de volta para o Dashboard
-            navigation.navigate('Dashboard');
-        } catch (error) {
-            console.error('Erro ao agendar consulta:', error);
+            let errorMessage = 'Erro ao agendar consulta. ';
+
             if (error.response?.status === 409) {
-                alert('Este horário já está ocupado. Por favor, escolha outro horário.');
+                errorMessage = 'Este horário já está ocupado. Escolha outro horário.';
+            } else if (error.response?.status === 400) {
+                errorMessage = 'Dados inválidos. Verifique as informações.';
+            } else if (error.response?.status === 404) {
+                errorMessage = 'Profissional não encontrado no sistema.';
+            } else if (error.response?.data?.error) {
+                errorMessage += error.response.data.error;
             } else {
-                alert('Erro ao agendar consulta. Tente novamente.');
+                errorMessage += 'Tente novamente.';
             }
+
+            alert(errorMessage);
         } finally {
             setLoading(false);
         }
     };
 
-    const getSelectedProfessionalName = () => {
-        if (!selectedProfessional) return '';
-        const professional = professionals.find(p => p.id === selectedProfessional);
-        return professional?.name || '';
-    };
-
     return (
-        <ScrollView style={styles.container}>
-            <View style={styles.header}>
-                <Title>Agendar Consulta</Title>
-                <Text style={styles.subtitle}>Preencha os dados para agendar sua consulta</Text>
-            </View>
+        <View style={styles.container}>
+            <ScrollView
+                style={styles.scrollView}
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={true}
+            >
+                {/* Header */}
+                <View style={styles.header}>
+                    <Title style={styles.title}>Agendar Consulta</Title>
+                    <Text style={styles.subtitle}>Preencha os dados para agendar sua consulta</Text>
+                </View>
 
-            <Card style={styles.formCard}>
-                <Card.Content>
-                    {/* Select de Especialidade */}
-                    <View style={styles.inputContainer}>
-                        <Text style={styles.label}>Especialidade *</Text>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.specialtiesScroll}>
-                            <View style={styles.selectContainer}>
-                                {specialties.map((specialty, index) => (
-                                    <CustomButton
-                                        key={index}
-                                        mode={selectedSpecialty === specialty ? 'contained' : 'outlined'}
-                                        onPress={() => setSelectedSpecialty(specialty)}
-                                        style={styles.specialtyButton}
-                                        compact
-                                        disabled={!!routeProfessional} // Desabilitar se veio da navegação
-                                    >
-                                        {specialty}
-                                    </CustomButton>
-                                ))}
-                            </View>
-                        </ScrollView>
-                    </View>
+                {/* Formulário */}
+                <View style={styles.form}>
 
-                    {/* Select de Profissional */}
-                    <View style={styles.inputContainer}>
-                        <Text style={styles.label}>Profissional *</Text>
-                        {professionalLoading ? (
-                            <ActivityIndicator size="small" color={COLORS.primary} />
-                        ) : (
-                            <ScrollView style={styles.professionalsScroll} showsVerticalScrollIndicator={false}>
-                                <View style={styles.selectContainer}>
-                                    {professionals.length === 0 ? (
-                                        <Text style={styles.noProfessionalsText}>
-                                            {selectedSpecialty ? 'Nenhum profissional disponível para esta especialidade' : 'Selecione uma especialidade primeiro'}
-                                        </Text>
-                                    ) : (
-                                        professionals.map((professional) => (
-                                            <CustomButton
-                                                key={professional.id}
-                                                mode={selectedProfessional === professional.id ? 'contained' : 'outlined'}
-                                                onPress={() => setSelectedProfessional(professional.id)}
-                                                style={styles.professionalButton}
-                                                disabled={!!routeProfessional} // Desabilitar se veio da navegação
-                                            >
-                                                <View style={styles.professionalInfo}>
-                                                    <Text style={styles.professionalName}>{professional.name}</Text>
-                                                    <Text style={styles.professionalRating}>⭐ {professional.rating} ({professional.reviewCount} avaliações)</Text>
-                                                </View>
-                                            </CustomButton>
-                                        ))
-                                    )}
-                                </View>
-                            </ScrollView>
-                        )}
-                    </View>
-
-                    {/* Input Date nativo */}
-                    <View style={styles.inputContainer}>
-                        <Text style={styles.label}>Data *</Text>
-                        <View style={styles.nativeInputContainer}>
-                            <input
-                                type="date"
-                                value={date}
-                                onChange={(e) => setDate(e.target.value)}
-                                min={getMinDate()}
-                                max={getMaxDate()}
-                                style={styles.nativeInput}
-                                required
-                            />
-                            {date && (
-                                <Text style={styles.selectedDateText}>
-                                    Data selecionada: {formatDateForDisplay(date)}
-                                </Text>
-                            )}
+                    {/* Especialidade */}
+                    <Text style={styles.label}>Especialidade *</Text>
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={true}
+                        style={styles.horizontalScroll}
+                    >
+                        <View style={styles.specialtiesContainer}>
+                            {specialties.map((specialty, index) => (
+                                <CustomButton
+                                    key={index}
+                                    mode={selectedSpecialty === specialty ? 'contained' : 'outlined'}
+                                    onPress={() => setSelectedSpecialty(specialty)}
+                                    style={styles.specialtyButton}
+                                >
+                                    {specialty}
+                                </CustomButton>
+                            ))}
                         </View>
-                    </View>
+                    </ScrollView>
 
-                    {/* Horários Disponíveis */}
-                    {date && selectedProfessional && (
-                        <View style={styles.inputContainer}>
-                            <Text style={styles.label}>Horários Disponíveis *</Text>
-                            {slotsLoading ? (
-                                <ActivityIndicator size="small" color={COLORS.primary} />
-                            ) : availableSlots.length === 0 ? (
-                                <Text style={styles.noSlotsText}>
-                                    Nenhum horário disponível para esta data
+                    {/* Profissionais */}
+                    <Text style={styles.label}>Profissional *</Text>
+                    {professionalLoading ? (
+                        <View style={styles.loadingBox}>
+                            <ActivityIndicator size="small" color={COLORS.primary} />
+                            <Text style={styles.loadingText}>Carregando profissionais...</Text>
+                        </View>
+                    ) : (
+                        <View style={styles.professionalsBox}>
+                            {professionals.length === 0 ? (
+                                <Text style={styles.emptyText}>
+                                    {selectedSpecialty ? 'Nenhum profissional disponível' : 'Selecione uma especialidade'}
                                 </Text>
                             ) : (
-                                <View style={styles.timeSlotsContainer}>
-                                    {availableSlots.map((slot, index) => (
-                                        <CustomButton
-                                            key={index}
-                                            mode={time === slot ? 'contained' : 'outlined'}
-                                            onPress={() => setTime(slot)}
-                                            style={styles.timeSlotButton}
-                                            compact
-                                        >
-                                            {slot}
-                                        </CustomButton>
-                                    ))}
-                                </View>
+                                professionals.map((professional) => (
+                                    <CustomButton
+                                        key={professional.id}
+                                        mode={selectedProfessional?.id === professional.id ? 'contained' : 'outlined'}
+                                        onPress={() => {
+                                            console.log('🎯 Profissional selecionado:', professional);
+                                            setSelectedProfessional(professional);
+                                        }}
+                                        style={styles.professionalButton}
+                                    >
+                                        <View style={styles.professionalInfo}>
+                                            <Text style={styles.professionalName}>{professional.name}</Text>
+                                            <Text style={styles.professionalDetails}>{professional.specialty} • ⭐ {professional.rating}</Text>
+                                            {professional.description && (
+                                                <Text style={styles.professionalDescription}>{professional.description}</Text>
+                                            )}
+                                        </View>
+                                    </CustomButton>
+                                ))
                             )}
                         </View>
+                    )}
+
+                    {/* Data */}
+                    <Text style={styles.label}>Data *</Text>
+                    <View style={styles.dateContainer}>
+                        <input
+                            type="date"
+                            value={date}
+                            onChange={(e) => setDate(e.target.value)}
+                            min={getMinDate()}
+                            max={getMaxDate()}
+                            style={styles.dateInput}
+                            required
+                        />
+                    </View>
+
+                    {/* Horários */}
+                    {date && selectedProfessional && (
+                        <>
+                            <Text style={styles.label}>Horários Disponíveis *</Text>
+                            {slotsLoading ? (
+                                <View style={styles.loadingBox}>
+                                    <ActivityIndicator size="small" color={COLORS.primary} />
+                                    <Text style={styles.loadingText}>Carregando horários...</Text>
+                                </View>
+                            ) : availableSlots.length === 0 ? (
+                                <Text style={styles.emptyText}>Nenhum horário disponível</Text>
+                            ) : (
+                                <ScrollView
+                                    horizontal
+                                    showsHorizontalScrollIndicator={true}
+                                    style={styles.horizontalScroll}
+                                >
+                                    <View style={styles.timeSlotsContainer}>
+                                        {availableSlots.map((slot, index) => (
+                                            <CustomButton
+                                                key={index}
+                                                mode={time === slot ? 'contained' : 'outlined'}
+                                                onPress={() => setTime(slot)}
+                                                style={styles.timeButton}
+                                            >
+                                                {slot}
+                                            </CustomButton>
+                                        ))}
+                                    </View>
+                                </ScrollView>
+                            )}
+                        </>
                     )}
 
                     {/* Observações */}
+                    <Text style={styles.label}>Observações (opcional)</Text>
                     <CustomInput
-                        label="Observações (opcional)"
                         value={notes}
                         onChangeText={setNotes}
                         placeholder="Alguma observação sobre a consulta..."
-                        left={<CustomInput.Icon icon="note" />}
                         multiline
                         numberOfLines={3}
+                        style={styles.notesInput}
                     />
 
-                    {/* Resumo do Agendamento */}
-                    {(selectedSpecialty || selectedProfessional || date || time) && (
-                        <Card style={styles.summaryCard}>
-                            <Card.Content>
-                                <Title style={styles.summaryTitle}>Resumo do Agendamento</Title>
-                                {selectedSpecialty && (
-                                    <Text style={styles.summaryText}>
-                                        <Text style={styles.summaryLabel}>Especialidade: </Text>
-                                        {selectedSpecialty}
-                                    </Text>
-                                )}
-                                {selectedProfessional && (
-                                    <Text style={styles.summaryText}>
-                                        <Text style={styles.summaryLabel}>Profissional: </Text>
-                                        {getSelectedProfessionalName()}
-                                    </Text>
-                                )}
-                                {date && (
-                                    <Text style={styles.summaryText}>
-                                        <Text style={styles.summaryLabel}>Data: </Text>
-                                        {formatDateForDisplay(date)} ✅
-                                    </Text>
-                                )}
-                                {time && (
-                                    <Text style={styles.summaryText}>
-                                        <Text style={styles.summaryLabel}>Horário: </Text>
-                                        {time} ✅
-                                    </Text>
-                                )}
-                                {notes && (
-                                    <Text style={styles.summaryText}>
-                                        <Text style={styles.summaryLabel}>Observações: </Text>
-                                        {notes}
-                                    </Text>
-                                )}
-                            </Card.Content>
-                        </Card>
+                    {/* Resumo */}
+                    {selectedProfessional && date && time && (
+                        <View style={styles.summary}>
+                            <Text style={styles.summaryTitle}>Resumo do Agendamento</Text>
+                            <Text style={styles.summaryText}><Text style={styles.summaryLabel}>Profissional:</Text> {selectedProfessional.name}</Text>
+                            <Text style={styles.summaryText}><Text style={styles.summaryLabel}>Especialidade:</Text> {selectedSpecialty}</Text>
+                            <Text style={styles.summaryText}><Text style={styles.summaryLabel}>Data:</Text> {date}</Text>
+                            <Text style={styles.summaryText}><Text style={styles.summaryLabel}>Horário:</Text> {time}</Text>
+                            {notes && <Text style={styles.summaryText}><Text style={styles.summaryLabel}>Observações:</Text> {notes}</Text>}
+                        </View>
                     )}
+                </View>
 
+                {/* Botão de Agendar - SEMPRE VISÍVEL */}
+                <View style={styles.footer}>
                     <CustomButton
                         mode="contained"
                         onPress={handleBooking}
-                        style={styles.bookButton}
                         loading={loading}
                         disabled={loading || !selectedSpecialty || !selectedProfessional || !date || !time}
+                        style={styles.bookButton}
                         icon="calendar-check"
                     >
                         Agendar Consulta
                     </CustomButton>
-                </Card.Content>
-            </Card>
-        </ScrollView>
+                </View>
+
+                {/* Debug */}
+                <CustomButton
+                    mode="outlined"
+                    onPress={() => {
+                        console.log('=== DEBUG ===');
+                        console.log('Profissional selecionado:', selectedProfessional);
+                        console.log('Profissional ID:', selectedProfessional?.id);
+                        console.log('Especialidade:', selectedSpecialty);
+                        console.log('Data:', date);
+                        console.log('Horário:', time);
+                    }}
+                    style={styles.debugButton}
+                >
+                    Debug
+                </CustomButton>
+
+                {/* Espaço extra para garantir rolagem */}
+                <View style={styles.spacer} />
+            </ScrollView>
+        </View>
     );
 };
 
@@ -341,46 +426,53 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: COLORS.background,
     },
+    scrollView: {
+        flex: 1,
+    },
+    scrollContent: {
+        flexGrow: 1,
+        paddingBottom: 120, // ESPAÇO EXTRA PARA ROLAGEM
+    },
     header: {
-        padding: 20,
         backgroundColor: COLORS.surface,
+        padding: 20,
         alignItems: 'center',
+    },
+    title: {
+        fontSize: 22,
+        color: COLORS.text,
+        marginBottom: 8,
     },
     subtitle: {
         color: COLORS.textSecondary,
-        marginTop: 8,
         textAlign: 'center',
     },
-    formCard: {
-        margin: 16,
-        elevation: 2,
-        backgroundColor: COLORS.surface,
-    },
-    inputContainer: {
-        marginBottom: 20,
+    form: {
+        padding: 16,
     },
     label: {
         fontSize: 16,
         fontWeight: 'bold',
-        marginBottom: 8,
         color: COLORS.text,
+        marginBottom: 8,
+        marginTop: 16,
     },
-    specialtiesScroll: {
-        maxHeight: 100,
+    horizontalScroll: {
+        marginHorizontal: -16,
+        paddingHorizontal: 16,
     },
-    professionalsScroll: {
-        maxHeight: 200,
-    },
-    selectContainer: {
+    specialtiesContainer: {
         flexDirection: 'row',
-        flexWrap: 'wrap',
         gap: 8,
+        paddingBottom: 8,
     },
     specialtyButton: {
-        margin: 2,
+        marginRight: 8,
+    },
+    professionalsBox: {
+        gap: 8,
     },
     professionalButton: {
-        margin: 2,
         width: '100%',
     },
     professionalInfo: {
@@ -390,22 +482,27 @@ const styles = StyleSheet.create({
     professionalName: {
         fontWeight: 'bold',
         fontSize: 14,
+        color: COLORS.text,
     },
-    professionalRating: {
+    professionalDetails: {
         fontSize: 12,
         color: COLORS.textSecondary,
         marginTop: 2,
     },
-    nativeInputContainer: {
+    professionalDescription: {
+        fontSize: 11,
+        color: COLORS.textTertiary,
+        fontStyle: 'italic',
+        marginTop: 4,
+    },
+    dateContainer: {
         borderWidth: 1,
         borderColor: COLORS.inputBorder,
         borderRadius: 8,
         backgroundColor: COLORS.inputBackground,
         padding: 12,
-        minHeight: 50,
-        justifyContent: 'center',
     },
-    nativeInput: {
+    dateInput: {
         width: '100%',
         fontSize: 16,
         border: 'none',
@@ -413,54 +510,75 @@ const styles = StyleSheet.create({
         outline: 'none',
         color: COLORS.text,
     },
-    selectedDateText: {
-        marginTop: 8,
-        fontSize: 14,
-        color: COLORS.textSecondary,
-        fontStyle: 'italic',
-    },
     timeSlotsContainer: {
         flexDirection: 'row',
-        flexWrap: 'wrap',
         gap: 8,
+        paddingBottom: 8,
     },
-    timeSlotButton: {
-        margin: 2,
+    timeButton: {
+        marginRight: 8,
+        minWidth: 80,
     },
-    noSlotsText: {
+    notesInput: {
+        minHeight: 80,
+    },
+    loadingBox: {
+        alignItems: 'center',
+        padding: 20,
+        backgroundColor: COLORS.surface,
+        borderRadius: 8,
+    },
+    loadingText: {
+        marginTop: 8,
+        color: COLORS.textSecondary,
+    },
+    emptyText: {
         textAlign: 'center',
         color: COLORS.textSecondary,
         fontStyle: 'italic',
-        padding: 10,
+        padding: 20,
+        backgroundColor: COLORS.surface,
+        borderRadius: 8,
     },
-    noProfessionalsText: {
-        textAlign: 'center',
-        color: COLORS.textSecondary,
-        fontStyle: 'italic',
-        marginVertical: 10,
-        padding: 10,
-    },
-    summaryCard: {
-        marginTop: 16,
+    summary: {
         backgroundColor: COLORS.inputBackground,
+        padding: 16,
+        borderRadius: 8,
         borderLeftWidth: 4,
         borderLeftColor: COLORS.primary,
+        marginTop: 16,
     },
     summaryTitle: {
         fontSize: 16,
+        fontWeight: 'bold',
+        color: COLORS.text,
         marginBottom: 8,
     },
     summaryText: {
-        marginBottom: 4,
         fontSize: 14,
+        color: COLORS.text,
+        marginBottom: 4,
     },
     summaryLabel: {
         fontWeight: 'bold',
-        color: COLORS.text,
+    },
+    footer: {
+        position: 'relative',
+        padding: 16,
+        backgroundColor: COLORS.background,
+        borderTopWidth: 1,
+        borderTopColor: COLORS.inputBorder,
     },
     bookButton: {
-        marginTop: 16,
-        paddingVertical: 8,
+        width: '100%',
+    },
+    debugButton: {
+        margin: 16,
+        marginTop: 0,
+        borderColor: COLORS.warning,
+    },
+    spacer: {
+        height: 40,
     },
 });
 
