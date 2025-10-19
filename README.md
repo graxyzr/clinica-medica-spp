@@ -1,3 +1,4 @@
+````markdown
 # Clínica Médica SPP
 
 `Clínica Médica SPP` é um sistema completo para agendamento de consultas médicas, construído com uma arquitetura moderna de frontend móvel e backend robusto. A aplicação permite que os pacientes visualizem profissionais, agendem, gerenciem e cancelem suas consultas de forma intuitiva.
@@ -60,3 +61,95 @@ cd backend
 
 # 2. Instale as dependências
 npm install
+````
+
+**Configuração do Banco de Dados:**
+
+1.  Crie um arquivo `.env` na raiz da pasta `backend`, baseado no arquivo `config/database.js`.
+
+2.  Adicione as seguintes variáveis de ambiente ao seu arquivo `.env`, substituindo com suas credenciais:
+
+    ```env
+    DB_HOST=localhost
+    DB_USER=root
+    DB_PASSWORD=sua_senha_secreta
+    DB_NAME=clinica_spp
+    DB_DIALECT=mysql
+
+    JWT_SECRET=seu_segredo_jwt_super_secreto
+    ```
+
+3.  Certifique-se de ter criado um banco de dados com o nome que você especificou em `DB_NAME`.
+
+4.  O Sequelize irá sincronizar os modelos com o banco de dados automaticamente ao iniciar o servidor.
+
+**Iniciando o Servidor:**
+
+```bash
+# Inicie o servidor em modo de desenvolvimento (com auto-reload)
+npm run dev
+
+# Ou inicie em modo de produção
+npm start
+```
+
+O servidor backend estará rodando em `http://localhost:3000`.
+
+### 2\. Configurando o Frontend
+
+Agora, vamos configurar e iniciar o aplicativo móvel.
+
+```bash
+# 1. Em um novo terminal, navegue até a pasta do frontend
+cd frontend
+
+# 2. Instale as dependências
+npm install
+```
+
+**Conexão com a API:**
+
+1.  Abra o arquivo `frontend/src/services/api.js`.
+
+2.  Certifique-se de que a `baseURL` corresponde ao endereço do seu servidor backend. Se estiver rodando localmente no mesmo computador, pode ser necessário usar o seu IP local em vez de `localhost` para que o aplicativo no celular consiga acessá-lo.
+
+    ```javascript
+    // Exemplo em frontend/src/services/api.js
+    const api = axios.create({
+      baseURL: 'http://SEU_IP_LOCAL:3000/api', // Ex: [http://192.168.1.10:3000/api](http://192.168.1.10:3000/api)
+    });
+    ```
+
+**Iniciando o Aplicativo:**
+
+```bash
+# Inicie o servidor de desenvolvimento do Expo
+npx expo start
+```
+
+Um QR code será exibido no seu terminal. Abra o aplicativo **Expo Go** no seu celular e escaneie o QR code para carregar o aplicativo.
+
+## 📂 Estrutura do Projeto
+
+```
+/
+├── backend/        # Código-fonte da API Node.js
+│   ├── config/
+│   ├── controllers/
+│   ├── middleware/
+│   ├── models/
+│   ├── routes/
+│   └── server.js
+│
+└── frontend/       # Código-fonte do aplicativo React Native (Expo)
+    ├── src/
+    │   ├── components/
+    │   ├── context/
+    │   ├── navigation/
+    │   ├── screens/
+    │   └── services/
+    └── App.js
+```
+
+```
+```
