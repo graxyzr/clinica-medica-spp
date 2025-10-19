@@ -1,4 +1,3 @@
-````markdown
 # Clínica Médica SPP
 
 `Clínica Médica SPP` é um sistema completo para agendamento de consultas médicas, construído com uma arquitetura moderna de frontend móvel e backend robusto. A aplicação permite que os pacientes visualizem profissionais, agendem, gerenciem e cancelem suas consultas de forma intuitiva.
